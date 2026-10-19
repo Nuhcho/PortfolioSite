@@ -1,0 +1,47 @@
+/* Full bleed at every width: the world is the page, not a panel beside it. */
+.world {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+:global(html[data-world="on"]) .world {
+  /* Wheel and touch still reach the document — a fixed element that cannot
+     scroll passes the gesture through — but taps reach the raycaster. */
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+
+.canvasHost {
+  position: absolute;
+  inset: 0;
+}
+
+/* The two washes behind the canvas are the world's atmosphere; without a live
+   canvas in front of them they are just a tinted sheet over the fallback. */
+:global(html[data-world="on"]) .canvasHost {
+  background:
+    radial-gradient(circle at 74% 10%, rgba(240, 198, 116, 0.26), transparent 46%),
+    linear-gradient(to bottom, #fbf3ec 0%, var(--bg) 46%, #ded2e4 100%);
+}
+
+.canvasHost canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* The one piece of DOM drawn over the world. A keyboard visitor has to see
+   where they are, and the ring has to be measured in screen pixels anyway. */
+.focusRing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  border: 2px solid var(--accent-operable);
+  box-shadow: 0 0 0 2px rgba(244, 233, 223, 0.95);
+  border-radius: 6px;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out-expo);
+}

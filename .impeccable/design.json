@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T00:00:00.000Z",
+  "title": "Design System: Monument Valley Isometric",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "#1c1333",
+        "tonalRamp": [
+          "#0c0817",
+          "#140e22",
+          "#1c1333",
+          "#271c45",
+          "#372a5c",
+          "#4e3f78",
+          "#7363a0",
+          "#a79fc6"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#2a1d4a",
+        "tonalRamp": [
+          "#140e22",
+          "#1f1636",
+          "#2a1d4a",
+          "#372a5c",
+          "#473a6e",
+          "#5e4f88",
+          "#7c6ea8",
+          "#a99fc9"
+        ]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Surface Raised",
+        "canonical": "#33254f",
+        "tonalRamp": [
+          "#17102a",
+          "#241a3c",
+          "#33254f",
+          "#403061",
+          "#523f76",
+          "#6b5693",
+          "#8c77b2",
+          "#b3a7d4"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Text",
+        "canonical": "#f3eef9",
+        "tonalRamp": [
+          "#b9aed0",
+          "#cac1dc",
+          "#d9d2e6",
+          "#e5dfee",
+          "#eee8f5",
+          "#f3eef9",
+          "#f8f5fb",
+          "#fcfbfe"
+        ]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Text Muted",
+        "canonical": "#b9aed0",
+        "tonalRamp": [
+          "#4c4460",
+          "#625879",
+          "#796d93",
+          "#9589ac",
+          "#b9aed0",
+          "#cac1dc",
+          "#ddd6e8",
+          "#efebf3"
+        ]
+      },
+      "accent-ml": {
+        "role": "primary",
+        "displayName": "Coral-Terracotta",
+        "canonical": "#f4805a",
+        "tonalRamp": [
+          "#6b2410",
+          "#8f3416",
+          "#b3461f",
+          "#d35c33",
+          "#f4805a",
+          "#f79c7e",
+          "#fabca6",
+          "#fddbcd"
+        ]
+      },
+      "accent-systems": {
+        "role": "secondary",
+        "displayName": "Jade-Teal",
+        "canonical": "#4fd1ae",
+        "tonalRamp": [
+          "#0e4436",
+          "#155c48",
+          "#1f7a5f",
+          "#2fa07e",
+          "#4fd1ae",
+          "#78dcc0",
+          "#a6e9d6",
+          "#d2f4e9"
+        ]
+      },
+      "accent-alert": {
+        "role": "tertiary",
+        "displayName": "Warm Gold Beacon",
+        "canonical": "#f2c14e",
+        "tonalRamp": [
+          "#6b4e12",
+          "#8f671a",
+          "#b38324",
+          "#d5a438",
+          "#f2c14e",
+          "#f5cf73",
+          "#f8dea1",
+          "#fbeecf"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "hero": { "displayName": "Hero", "purpose": "Name heading, once, in the hero." },
+      "display-sm": { "displayName": "Display Small", "purpose": "Hero role line." },
+      "section": { "displayName": "Section", "purpose": "Section headings (Selected Work, Experience, Technical Capabilities, footer)." },
+      "project-title": { "displayName": "Project Title", "purpose": "Featured project card names." },
+      "title": { "displayName": "Title", "purpose": "Compact project-row and timeline entry names, credential primary line." },
+      "body-lg": { "displayName": "Body Large", "purpose": "Hero summary, featured-card summary line." },
+      "body": { "displayName": "Body", "purpose": "General copy, summaries, detail text, footer copy." },
+      "meta": { "displayName": "Meta", "purpose": "Credential meta lines, timeline metric values, footer stack line." },
+      "label": { "displayName": "Label", "purpose": "Category tags, skill-group labels, credential labels, metric-plate captions." }
+    },
+    "shadows": [
+      {
+        "name": "edge-sm",
+        "value": "3px 0 0 0 var(--block-edge), 0 3px 0 0 var(--block-edge)",
+        "purpose": "Flat-block edge for pills, skill groups, nav CTA, toggles, timeline markers/trigger, credentials card."
+      },
+      {
+        "name": "edge-md",
+        "value": "5px 0 0 0 var(--block-edge), 0 5px 0 0 var(--block-edge)",
+        "purpose": "Flat-block edge for primary/ghost hero buttons and the expanded timeline figure panel."
+      },
+      {
+        "name": "edge-lg",
+        "value": "8px 0 0 0 var(--block-edge), 0 8px 0 0 var(--block-edge)",
+        "purpose": "Flat-block edge reserved for the two flagship FeaturedProject cards."
+      },
+      {
+        "name": "edge-inset",
+        "value": "inset 3px 0 0 0 var(--block-edge-soft), inset 0 3px 0 0 var(--block-edge-soft)",
+        "purpose": "The one sunken surface: FeaturedProject's metric readout plate."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing for disclosures, hovers, and press transforms."
+      },
+      {
+        "name": "duration-fast",
+        "value": "140ms",
+        "purpose": "Pill/button hover-edge and press transforms."
+      },
+      {
+        "name": "duration-base",
+        "value": "220ms",
+        "purpose": "Nav link, ghost-button, and menu-icon transitions."
+      },
+      {
+        "name": "duration-slow",
+        "value": "360ms",
+        "purpose": "Grid-row disclosure reveal (timeline detail, mobile nav panel)."
+      },
+      {
+        "name": "heroReveal",
+        "value": "560ms var(--ease-out-expo) both, staggered 80ms per element",
+        "purpose": "One-shot staggered hero entrance (heroName/heroRole/heroSummary/heroActions/credentials)."
+      },
+      {
+        "name": "hero-auto-rotate",
+        "value": "~52s per revolution, continuous linear",
+        "purpose": "HeroScene's main structure auto-rotation; the paradox loop counter-rotates at 0.7x the same speed on its own axis."
+      },
+      {
+        "name": "pipeline-pulse",
+        "value": "2.2s loop, staggered 0.5s per edge",
+        "purpose": "IsometricPipeline's traveling emissive dot per connector, active only while the parent entry is expanded."
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "640px" },
+      { "name": "pipeline-card", "value": "720px" },
+      { "name": "hero-2col", "value": "900px" },
+      { "name": "skills-2col", "value": "900px" },
+      { "name": "skills-1col", "value": "480px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Coral-filled hero CTA with the flat-block edge; grows and lifts on hover, presses flat on active.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#work\">View Selected Work</a>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; padding: 14px 28px; border-radius: 10px; background: #f4805a; color: #1c1333; font-weight: 700; font-size: 0.98rem; text-decoration: none; box-shadow: 5px 0 0 0 #110a21, 0 5px 0 0 #110a21; transition: box-shadow 220ms cubic-bezier(0.16,1,0.3,1), transform 140ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-primary:hover { transform: translate(-2px, -2px); box-shadow: 7px 0 0 0 #110a21, 0 7px 0 0 #110a21; } .ds-btn-primary:active, .ds-btn-primary:focus-visible { transform: translate(1px, 1px); box-shadow: 2px 0 0 0 #110a21, 0 2px 0 0 #110a21; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Transparent-at-rest secondary CTA; gains surface fill and a thin flat-block edge only on hover.",
+      "html": "<a class=\"ds-btn-ghost\" href=\"#contact\">Get in Touch</a>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; padding: 14px 20px; border-radius: 10px; color: #f3eef9; font-weight: 700; font-size: 0.98rem; text-decoration: none; background: transparent; box-shadow: none; transition: box-shadow 220ms cubic-bezier(0.16,1,0.3,1), background 220ms cubic-bezier(0.16,1,0.3,1), transform 140ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-ghost:hover { background: #2a1d4a; box-shadow: 3px 0 0 0 #110a21, 0 3px 0 0 #110a21; transform: translate(-1px, -1px); } .ds-btn-ghost:active { transform: translate(1px, 1px); box-shadow: none; }"
+    },
+    {
+      "name": "Featured Project Card",
+      "kind": "card",
+      "refersTo": "featured-card",
+      "description": "Flagship project card (Cogniscan, OmniScanner) with an inset metric plate and the system's strongest flat-block edge, reserved for exactly two entries.",
+      "html": "<article class=\"ds-featured\"><div class=\"ds-featured-metric\"><span class=\"ds-featured-metric-value\">97.8% accuracy</span><span class=\"ds-featured-metric-label\">applied ML</span></div><div class=\"ds-featured-content\"><span class=\"ds-featured-tag\">ML</span><h3 class=\"ds-featured-title\">Cogniscan</h3><p class=\"ds-featured-summary\">MRI analysis for early Alzheimer's assessment.</p><p class=\"ds-featured-detail\">An MRI analysis system for Alzheimer's assessment, reaching 97.8% accuracy against evaluated cases.</p></div></article>",
+      "css": ".ds-featured { display: grid; grid-template-columns: minmax(200px, 0.85fr) minmax(0, 1.4fr); gap: 40px; align-items: stretch; background: #2a1d4a; border-radius: 28px; box-shadow: 8px 0 0 0 #110a21, 0 8px 0 0 #110a21; padding: 36px; font-family: 'Manrope', sans-serif; color: #f3eef9; } .ds-featured-metric { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 24px; border-radius: 14px; background: #1c1333; box-shadow: inset 3px 0 0 0 rgba(17,10,33,0.55), inset 0 3px 0 0 rgba(17,10,33,0.55); } .ds-featured-metric-value { font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 2.1rem; color: #f4805a; } .ds-featured-metric-label { font-size: 0.76rem; letter-spacing: 0.08em; text-transform: uppercase; color: #b9aed0; } .ds-featured-content { display: flex; flex-direction: column; gap: 12px; } .ds-featured-tag { display: inline-flex; align-self: flex-start; padding: 4px 14px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; color: #f4805a; background: rgba(244,128,90,0.16); } .ds-featured-title { font-family: 'Unbounded', sans-serif; font-weight: 600; font-size: 1.5rem; } .ds-featured-summary { font-size: 1.15rem; color: #f3eef9; } .ds-featured-detail { font-size: 1.0625rem; color: #b9aed0; line-height: 1.65; }"
+    },
+    {
+      "name": "Project Row",
+      "kind": "custom",
+      "refersTo": "project-row",
+      "description": "Unshadowed compact project row (Gastronomy, ARMSE, BroadbandNow Scraper) — the one surface with no flat-block edge of its own, just a hairline divider.",
+      "html": "<div class=\"ds-row\"><div class=\"ds-row-main\"><span class=\"ds-row-tag\">ML</span><span class=\"ds-row-name\">Gastronomy</span><span class=\"ds-row-summary\">Tissue classification from imaging data.</span></div><span class=\"ds-row-metric\">96.8% accuracy</span></div>",
+      "css": ".ds-row { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 18px 4px; border-bottom: 1px solid #33254f; font-family: 'Manrope', sans-serif; } .ds-row-main { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; } .ds-row-tag { font-size: 0.76rem; font-weight: 700; color: #f4805a; } .ds-row-name { font-size: 1.15rem; font-weight: 600; font-family: 'Unbounded', sans-serif; color: #f3eef9; } .ds-row-summary { font-size: 1.0625rem; color: #b9aed0; } .ds-row-metric { font-size: 0.82rem; font-weight: 700; color: #b9aed0; white-space: nowrap; }"
+    },
+    {
+      "name": "Skill Group",
+      "kind": "card",
+      "refersTo": "skill-group",
+      "description": "Flat-block-edged container for one grouped skill cluster; individual items are plain text, no per-item edge.",
+      "html": "<div class=\"ds-skill-group\"><span class=\"ds-skill-label\">Languages</span><ul class=\"ds-skill-items\"><li>Python</li><li>JavaScript</li><li>TypeScript</li></ul></div>",
+      "css": ".ds-skill-group { padding: 22px; border-radius: 20px; background: #2a1d4a; box-shadow: 3px 0 0 0 #110a21, 0 3px 0 0 #110a21; font-family: 'Manrope', sans-serif; } .ds-skill-label { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4fd1ae; margin-bottom: 12px; display: block; } .ds-skill-items { list-style: none; display: flex; flex-direction: column; gap: 6px; } .ds-skill-items li { font-size: 1.0625rem; color: #f3eef9; }"
+    },
+    {
+      "name": "Disclosure Trigger",
+      "kind": "button",
+      "refersTo": "disclosure-trigger",
+      "description": "The signature press toggle with an authored two-line SVG icon (never literal +/- glyph text): flat-block edge at rest, presses flat and translates on expand.",
+      "html": "<button class=\"ds-disclosure\" aria-expanded=\"false\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><line x1=\"1\" y1=\"6\" x2=\"11\" y2=\"6\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/><line x1=\"6\" y1=\"1\" x2=\"6\" y2=\"11\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg></button><div class=\"ds-disclosure-panel\"><div class=\"ds-disclosure-inner\"><p class=\"ds-disclosure-text\">Detail text.</p></div></div>",
+      "css": ".ds-disclosure { width: 28px; height: 28px; border-radius: 50%; border: none; background: #2a1d4a; box-shadow: 3px 0 0 0 #110a21, 0 3px 0 0 #110a21; color: #b9aed0; cursor: pointer; transition: box-shadow 140ms cubic-bezier(0.16,1,0.3,1), color 140ms cubic-bezier(0.16,1,0.3,1), transform 140ms cubic-bezier(0.16,1,0.3,1); } .ds-disclosure:hover { color: #f3eef9; transform: translate(-1px, -1px); box-shadow: 4px 0 0 0 #110a21, 0 4px 0 0 #110a21; } .ds-disclosure[aria-expanded='true'] { transform: translate(1px, 1px); box-shadow: 1px 0 0 0 #110a21, 0 1px 0 0 #110a21; } .ds-disclosure-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 360ms cubic-bezier(0.16,1,0.3,1); } .ds-disclosure-panel[data-open='true'] { grid-template-rows: 1fr; } .ds-disclosure-inner { overflow: hidden; } .ds-disclosure-text { font-size: 1.0625rem; color: #b9aed0; line-height: 1.65; padding-top: 14px; }"
+    },
+    {
+      "name": "Contact Pill",
+      "kind": "nav",
+      "refersTo": "pill-link",
+      "description": "Pill-shaped footer contact link; the nav CTA is the same pattern at a smaller size with inverted fill.",
+      "html": "<a class=\"ds-pill-link\" href=\"mailto:example@example.com\">Email</a>",
+      "css": ".ds-pill-link { display: inline-flex; align-items: center; padding: 9px 18px; border-radius: 999px; background: #2a1d4a; box-shadow: 3px 0 0 0 #110a21, 0 3px 0 0 #110a21; font-family: 'Manrope', sans-serif; font-size: 0.9rem; font-weight: 700; color: #4fd1ae; text-decoration: none; transition: box-shadow 140ms cubic-bezier(0.16,1,0.3,1), transform 140ms cubic-bezier(0.16,1,0.3,1); } .ds-pill-link:hover { transform: translate(-1px, -1px); box-shadow: 4px 0 0 0 #110a21, 0 4px 0 0 #110a21; } .ds-pill-link:active, .ds-pill-link:focus-visible { transform: translate(1px, 1px); box-shadow: 1px 0 0 0 #110a21, 0 1px 0 0 #110a21; }"
+    },
+    {
+      "name": "Nav",
+      "kind": "nav",
+      "refersTo": "pill-link",
+      "description": "Sticky nav bar with scroll-spy active links and a mobile hamburger-to-collapsible-panel state below 640px.",
+      "html": "<header class=\"ds-nav\"><a class=\"ds-nav-mark\" href=\"#top\">NVK</a><nav class=\"ds-nav-links\"><a href=\"#work\" aria-current=\"true\">Work</a><a href=\"#experience\">Experience</a><a href=\"#skills\">Skills</a></nav><a class=\"ds-nav-cta\" href=\"mailto:example@example.com\">Get in touch</a></header>",
+      "css": ".ds-nav { position: sticky; top: 0; display: flex; align-items: center; gap: 16px; padding: 14px 24px; background: #2a1d4a; box-shadow: 0 3px 0 0 #110a21; font-family: 'Manrope', sans-serif; } .ds-nav-mark { font-family: 'Unbounded', sans-serif; font-weight: 700; color: #f3eef9; text-decoration: none; } .ds-nav-links { display: flex; gap: 24px; flex: 1; justify-content: center; } .ds-nav-links a { font-size: 0.82rem; font-weight: 600; color: #b9aed0; text-decoration: none; border-bottom: 2px solid transparent; } .ds-nav-links a:hover { color: #f3eef9; } .ds-nav-links a[aria-current='true'] { color: #4fd1ae; border-color: #4fd1ae; } .ds-nav-cta { display: inline-flex; padding: 8px 18px; border-radius: 999px; background: #f4805a; box-shadow: 3px 0 0 0 #110a21, 0 3px 0 0 #110a21; font-size: 0.82rem; font-weight: 700; color: #1c1333; text-decoration: none; }"
+    },
+    {
+      "name": "HeroScene (Three.js set-piece)",
+      "kind": "custom",
+      "refersTo": "hero",
+      "description": "Live Three.js hero structure: a flat-shaded isometric spiral staircase alternating coral/jade treads with two landings, a floating gold beacon, and a counter-rotating closed-loop paradox satellite marked by an open gold keystone. Auto-rotates continuously (~52s/revolution), pauses under prefers-reduced-motion, off-screen, and on hidden tabs. Not representable as HTML/CSS; documented as narrative/behavior only.",
+      "html": "<div class=\"ds-hero-scene\" role=\"img\" aria-hidden=\"true\"></div>",
+      "css": ".ds-hero-scene { width: 100%; height: 100%; min-height: 280px; border-radius: 28px; overflow: hidden; background: radial-gradient(circle at 60% 35%, #372a5c, #1c1333); }"
+    },
+    {
+      "name": "IsometricPipeline (Three.js set-piece)",
+      "kind": "custom",
+      "refersTo": "detailFigure",
+      "description": "Live Three.js node/edge pipeline diagram reused for Lumen's branching pipeline and Kodely's linear RAG pipeline: flat-shaded boxy nodes, curved tube edges, a staggered emissive coral pulse per edge (2.2s loop), active only while the parent timeline entry is expanded. 2D labels are projected from the 3D camera each frame. Not representable as HTML/CSS; documented as narrative/behavior only.",
+      "html": "<figure class=\"ds-pipeline\"><div class=\"ds-pipeline-canvas\" aria-hidden=\"true\"></div></figure>",
+      "css": ".ds-pipeline { margin-top: 18px; padding: 18px; border-radius: 20px; background: #2a1d4a; box-shadow: 5px 0 0 0 #110a21, 0 5px 0 0 #110a21; max-width: 900px; } .ds-pipeline-canvas { width: 100%; min-height: 220px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Floating Isometric Monument",
+    "overview": "This is a full redesign, not a maturation of the prior neomorphic world. The dual-shadow soft-extrusion material, the #e0e5ec plane, and the Sora/Hanken Grotesk pairing are retired outright — kept only as historical evidence of what this is a portfolio for, never as authority over this world's material. The new world commits to a deep twilight ground carrying every surface, two live Three.js set-pieces (an isometric staircase-and-paradox-loop hero structure, and a second pipeline diagram reused across two Experience entries), and a 2D flat block material that simulates an isometric cube's shaded faces with hard, zero-blur offset color — never a soft shadow, never blur or glass. The dual-discipline thesis (ships ML into real production systems) is made spatially rather than stated: the hero's single Three.js structure interleaves coral (applied ML) and jade (systems) treads and landings around one spiral, under one fixed warm sun light with a cool violet fill — the same two-hue classification axis from PRODUCT.md, now expressed as geometry and light rather than as shadow-carved panels. The same flat-shaded material recurs in the second Three.js set-piece lower on the page, so the world reads as built once and reused, not decorated per section.",
+    "keyCharacteristics": [
+      "A committed dark twilight ground (--bg: #1c1333) and two raised surface tiers (--surface, --surface-raised) carrying every panel, card, and pill — no light-neutral plane anywhere.",
+      "Two live Three.js set-pieces (hero structure, isometric pipeline diagrams) built from flat-shaded MeshStandardMaterial geometry, lit by one warm directional sun plus ambient and cool violet fill — no PBR gloss, no soft raster shadow look.",
+      "A 2D flat block material: paired hard-edged, zero-blur offset color on the bottom-right of every card, button, and pill, standing in for an isometric cube's two shaded side faces under one fixed upper-left light.",
+      "Two committed jewel accent channels (coral-terracotta for applied ML, jade-teal for systems engineering) plus one reserved warm-gold beacon accent confined to exactly one sitewide fact.",
+      "Unbounded (display) + Manrope (body) — a blocky architectural geometric sans paired with a clean humanist body sans, replacing the prior Sora/Hanken Grotesk pairing outright.",
+      "One continuous ambient motion grammar: slow, non-interactive auto-rotation (hero structure, paradox loop, pipeline pulse), with a prefers-reduced-motion fallback to a static frame throughout."
+    ],
+    "rules": [
+      {
+        "name": "The AA-Everywhere Rule",
+        "body": "Every text and accent role clears WCAG AA against --bg, re-verified against the new dark ground rather than inherited from the retired world's light-ground numbers — there is no standing accessibility exception for this world.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Alert Rule",
+        "body": "Warm gold (#f2c14e) is reserved as a UI/text color for exactly one sitewide critical-emphasis fact — the Lumen real-time-throughput figure — carried forward from the retired world's same-named rule, re-grounded in the new hex value. It never colors a pill, a button, or a second fact.",
+        "section": "colors"
+      },
+      {
+        "name": "The Category Channel Rule",
+        "body": "Coral means applied ML, jade means systems engineering, sitewide, assigned by what each entry's own headline metric proves — carried forward unchanged from PRODUCT.md's classification axis.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flat-Block Rule",
+        "body": "Every shape-bearing 2D surface is defined by the paired, zero-blur bottom-right offset material — never a blurred shadow, never a border standing in for shape, and never a light source other than fixed upper-left/warm-sun. Do not reintroduce blur or a soft dual-shadow extrusion anywhere in this world.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Flat-Shaded 3D Rule",
+        "body": "Both Three.js set-pieces use flatShading: true materials with low metalness and no PBR gloss — matte, faceted, painterly, not a glossy product-render look.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do carve every 2D shape-bearing surface with the Flat Block material's paired, zero-blur bottom-right offset — never a blurred shadow.",
+      "Do keep the 2D light source fixed upper-left (dark faces always bottom-right) and the 3D light rig's warm sun + ambient + cool fill consistent across both Three.js set-pieces.",
+      "Do confine warm gold (#f2c14e) as a text/UI color to the one Lumen-throughput fact, per the One Alert Rule.",
+      "Do keep every text/accent color at or above AA contrast against #1c1333.",
+      "Do use the authored two-line SVG PlusMinusIcon (never a literal +/- glyph) for any new expand/collapse control.",
+      "Do pause all continuous motion (hero rotation, paradox loop, pipeline pulse) under prefers-reduced-motion, off-screen, and when the tab is hidden."
+    ],
+    "donts": [
+      "Don't reintroduce blur, glass, or the retired world's soft dual-shadow extrusion anywhere in this world — the two materials (Flat Block and flat-shaded Three.js) are this world's only depth vocabulary.",
+      "Don't add a section-heading kicker/eyebrow above any h2 — this system's shipped pattern is a plain .sectionSubtitle paragraph placed below the heading, with no small-caps label element preceding a heading anywhere in the build.",
+      "Don't extend the pipeline pulse's or paradox loop's continuous-loop motion to a new component without the same live process reasoning already established for the two existing set-pieces.",
+      "Don't add a per-project GitHub/demo link, tech-stack chip, or date to an Experience/Project entry beyond what PRODUCT.md's Evidence on Hand confirms.",
+      "Don't attempt a literal single-camera-angle Penrose illusion in a continuously auto-rotating scene — it only reads correctly for an instant per revolution; use a rotation-safe paradox motif instead, as the hero does."
+    ]
+  }
+}

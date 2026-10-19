@@ -1,0 +1,161 @@
+:root {
+  /* ---- a pastel world: dusty rose, pale lilac, soft teal, ivory ---- */
+  --bg: #f2ebf0;
+  --surface: #f4e9df;
+  --surface-raised: #e8dcd2;
+
+  /* ---- ink: the same hues taken down far enough to carry text ---- */
+  --text: #55474f; /* ~7.3:1 on --surface */
+  --text-muted: #6e5e66; /* ~5.1:1 on --surface */
+
+  /* ---- accent channels: the real ML/systems axis ---- */
+  --accent-ml: #9c5048; /* applied ML, ~4.8:1 on --surface */
+  --accent-systems: #336660; /* systems engineering, ~5.5:1 on --surface */
+  --accent-alert: #75571f; /* the one reserved fact, ~5.6:1 on --surface */
+
+  /* ---- the one saturated note, reserved for what can be operated ---- */
+  --accent-operable: #b33a62;
+
+  /* ---- solid tier: the mass of the building, never text ---- */
+  --rose: #e3b2ad;
+  --teal: #a8cdc8;
+  --lilac: #c6bada;
+  --sand: #e5cfa4;
+
+  /* ---- flat block: used only by the fallback document, where there is no
+     light to carve with. Zero blur, offsets bottom-right, so a surface reads
+     as a block lit from the upper left. ---- */
+  --edge-sm: 3px;
+  --edge-md: 5px;
+  --edge-lg: 8px;
+  --block-edge: #c8bcbc;
+
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+
+  /* ---- type scale ---- */
+  --text-hero: clamp(2.7rem, 6.2vw, 5rem);
+  --text-section: clamp(1.55rem, 2.5vw, 2rem);
+  --text-title: 1.15rem;
+  --text-body: 1.0625rem;
+  --text-meta: 0.82rem;
+  --text-label: 0.76rem;
+
+  --measure: 66ch;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100%;
+  /* The world paints the ground; this is what a visitor sees before the
+     canvas has a frame, and what they keep if it never gets one. */
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body), "Manrope", sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), "Unbounded", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+p {
+  max-width: var(--measure);
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--rose);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-operable);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c8bcbc;
+  border: 3px solid var(--bg);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-systems);
+}
+
+* {
+  scrollbar-color: #c8bcbc var(--bg);
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---- thinner block edges on small screens: depth stays legible, not heavy ---- */
+@media (max-width: 640px) {
+  :root {
+    --edge-sm: 2px;
+    --edge-md: 4px;
+    --edge-lg: 6px;
+  }
+}
