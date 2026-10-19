@@ -53,3 +53,7 @@ next-env.d.ts
 .cursor/
 .impeccable/config.local.json
 .impeccable/hook.cache.json
+
+AGENTS.md
+CLAUDE.md
+DESIGN.md
