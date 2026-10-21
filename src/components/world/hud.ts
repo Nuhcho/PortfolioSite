@@ -45,9 +45,33 @@ function paintedPlane(registry: Registry, spec: Parameters<typeof paintText>[0])
   return { mesh, width: painted.width, height: painted.height };
 }
 
+/* The bar's own depth order, in HUD units: the slab behind, the marks on it,
+   and the hit planes a hair in front of those. All of it in front of the
+   camera, which is the part that was wrong. */
+const HUD_EYE = 10;
+
 export function buildHud(registry: Registry, palette: Palette) {
   const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(0, 1, 0, -1, -50, 50);
+  /* The camera stands back from the bar rather than inside it, and this is
+     what makes the navigation clickable at all.
+
+     `Raycaster.setFromCamera` starts an orthographic ray not at the camera
+     but at the plane the projection matrix calls the middle of its depth
+     range — `projectionMatrix.elements[14]`, which for a frustum of
+     (-50, 50) about the origin is exactly z = 0 — and then fires it along
+     -Z. Every piece of this bar sits at z +0.4 or +0.5, which is *behind*
+     that origin, so every intersection came out at a negative distance and
+     was discarded. The five section marks and the wordmark have been drawn,
+     lit, hover-scaled and hit-tested against the pointer this whole time,
+     and not one of them could ever be pressed; the DOM mirror's real links
+     are the only reason the navigation worked at all.
+
+     Pushing the eye to +10 with a near plane in front of it puts the ray
+     origin at z 9.9 and the whole bar in front of it. Nothing else about the
+     bar moves: the frustum is still the viewport in CSS pixels, and the
+     z-order of slab, mark and hit plane is unchanged. */
+  const camera = new THREE.OrthographicCamera(0, 1, 0, -1, 0.1, HUD_EYE + 50);
+  camera.position.z = HUD_EYE;
   const hotspots: Hotspot[] = [];
 
   scene.add(new THREE.AmbientLight(0xfff1e0, 0.78));

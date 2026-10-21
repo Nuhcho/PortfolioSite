@@ -7,7 +7,7 @@ import { buildHud } from "./hud";
 import { QUARTER, buildMonument, type Storey } from "./monument";
 import { SCREEN_UP, screenBox } from "./layout";
 import type { Hotspot } from "./parts";
-import { COLOR, ISO_DIR, Registry, UNIT_PX, createPalette } from "./theme";
+import { ISO_DIR, Registry, UNIT_PX, createPalette } from "./theme";
 import { configureText, ensureFonts, loadDisplayFont } from "./text";
 import { getActiveEntry, setActiveEntry } from "./worldState";
 
@@ -45,6 +45,16 @@ const WIDE_FILL = 0.42;
    hanging in the air behind it, which looks like a rendering fault rather
    than like a transition. Out before the wall has visibly moved. */
 const INK_OUT = 0.16;
+/* A flight is whole at exactly one angle and in pieces at every other, so a
+ * keep carrying five of them shows one stair and four heaps of rubble unless
+ * each is told when its own moment is. These two bound that moment: the
+ * flight stands through the first FLIGHT_HOLD of the turn — long enough to be
+ * seen whole, and to be seen begin to come apart — and is gone FLIGHT_TEAR
+ * later, well before the halves have drifted far enough to stop reading as
+ * two halves of something. The storey being turned to brings its own flight
+ * in on the mirror of the same curve, closing as its quarter arrives. */
+const FLIGHT_HOLD = 0.16;
+const FLIGHT_TEAR = 0.42;
 const TAP_SLOP = 12;
 const TAP_TIME = 700;
 
@@ -86,7 +96,21 @@ export default function WorldCanvas() {
       /* ---- persistent stage ---- */
 
       const scene = new THREE.Scene();
-      scene.fog = new THREE.Fog(COLOR.sky, CAM_DISTANCE + 6, CAM_DISTANCE + 96);
+      /* No fog, and for a reason particular to this camera rather than to
+         taste. Depth fog measures distance along the view axis, and under a
+         locked isometric the view axis is (1,1,1): going *down* the keep is
+         going away from the eye. The keep is about ninety units deep from
+         crown to foot, the range this was set to was CAM_DISTANCE + 6 to
+         + 96, and the two numbers are the same size — so framing the top
+         storey put the bottom three at the far plane and dissolved them. A
+         monument that fades out below its own waist reads as a draw failure,
+         not as air.
+
+         Matching the fog to the backdrop would not have rescued it either:
+         the sky behind the canvas is a gradient running #fbf3ec to #ded2e4
+         down the viewport, and the fog had one colour, COLOR.sky, which is
+         neither of the ends. Where it bit hardest — the bottom of the frame —
+         it was fading stone to a lilac-pink the sky there is not. */
       const camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, CAM_DISTANCE * 2.4);
 
       /* No shadow map, and this was tested rather than assumed: it went on
@@ -368,8 +392,21 @@ export default function WorldCanvas() {
         /* Ink is off the wall before the wall moves far enough to shear it,
            and the storey being handed to is the one it comes back on. */
         const legible = 1 - smoothstep(wide / INK_OUT);
-        for (let i = 0; i < storeys.length; i += 1) storeys[i].setInk(0);
+        for (let i = 0; i < storeys.length; i += 1) {
+          storeys[i].setInk(0);
+          storeys[i].setFlight(0);
+        }
         storeys[turn < 0.5 ? low : high].setInk(legible);
+
+        // The flight of the storey being left, coming apart; and, over the
+        // back half of the same turn, the flight of the one being arrived at,
+        // closing. Every other flight on the keep is off the board.
+        storeys[low].setFlight(1 - smoothstep((turn - FLIGHT_HOLD) / FLIGHT_TEAR));
+        if (!terminal) {
+          storeys[high].setFlight(
+            smoothstep((turn - (1 - FLIGHT_HOLD - FLIGHT_TEAR)) / FLIGHT_TEAR)
+          );
+        }
 
         camera.left = -viewSize * aspect;
         camera.right = viewSize * aspect;
