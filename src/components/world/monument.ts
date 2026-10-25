@@ -56,6 +56,8 @@ export type Storey = {
   facet: THREE.Group;
   /** fade this storey's inscription, 1 readable to 0 gone */
   setInk: (opacity: number) => void;
+  /** fade this storey's flight, 1 standing to 0 gone */
+  setFlight: (opacity: number) => void;
 };
 
 export type View = { width: number; height: number; narrow: boolean };
@@ -216,15 +218,45 @@ const VIEW_SPLIT = ISO_DIR.clone()
    they are metres apart, and the moment the tower turns off this storey's
    quarter the join tears open. It comes toward the eye rather than away: the
    shaft fills the space behind, and a flight pushed back into it is simply
-   swallowed. */
+   swallowed.
+
+   Treads meet, they do not pile up. A block is cut to its own step and no
+   larger — the run across, the rise up — with STEP_BITE of slack so that no
+   antialiased seam opens along the join. Sized to anything else and each
+   tread is buried in the one below it: a run of 1.34 under a tread of 1.5,
+   carrying a block 2.4 times its own rise, is a heap of overlapping tiles
+   rather than a stair, which is what the flight had been.
+
+   That leaves the climb, where the arithmetic is not the obvious one. At
+   this bearing a block's depth sweeps 0.577 of a screen unit up the picture
+   for every unit of it — the usual isometric tax on a horizontal surface —
+   so a block only 1.6 screen units tall by its own rise stands 2.72 tall
+   once its depth is counted, against a pitch of 1.6. The treads overlap by a
+   full step vertically and nothing is cut to make them: the depth does it.
+
+   The block's own height carries a SCREEN_LIFT because the facet it hangs in
+   scales Y by 1/SCREEN_LIFT so its children can be laid out in plain screen
+   units. Text wants that. A solid does not — it came out 22% taller than it
+   was cut, which is why the treads read as slabs stood on end. Everything
+   else here stays in screen units, which is where the clearance from the
+   reading column is measured. */
+const STEP_BITE = 0.94;
+
 function brokenFlight(
   registry: Registry,
   materials: [THREE.Material, THREE.Material],
-  spec: { steps: number; run: number; rise: number; tread: number; split: number }
+  spec: { steps: number; run: number; rise: number; depth: number; split: number }
 ) {
   const group = new THREE.Group();
+  // Across the wall and up it come from the step itself; `depth` is the only
+  // dimension the flight is free to choose, being the one that stands out of
+  // the wall rather than along it.
   const geometry = registry.geometry(
-    new THREE.BoxGeometry(spec.tread, spec.rise * 2.4, spec.tread)
+    new THREE.BoxGeometry(
+      spec.run / STEP_BITE,
+      (spec.rise / STEP_BITE) * SCREEN_LIFT,
+      spec.depth
+    )
   );
   for (let i = 0; i < spec.steps; i += 1) {
     const mesh = new THREE.Mesh(geometry, materials[i % 2]);
@@ -235,6 +267,24 @@ function brokenFlight(
     group.add(mesh);
   }
   return group;
+}
+
+/* How the flight is cut. Seven treads of two and a half units, against the
+   eleven of one and a third it was cut to when it lived at reading distance:
+   the turn now happens pulled back, where the frame is some sixty screen
+   units tall and the old flight was gravel. */
+const FLIGHT = { steps: 7, run: 2.55, rise: 1.6, depth: 2.3, split: 13 };
+/** stone between the flight and anything it must not touch, in screen units */
+const FLIGHT_CLEARANCE = 1.4;
+
+/** How far the head of the run stands from the flight's own origin, in screen
+    units — the reach its placement has to be solved against so that no tread
+    can land on the reading column however the flight is cut. */
+function flightReach(spec: { steps: number; run: number; rise: number }) {
+  return {
+    x: (spec.steps - 1) * spec.run + spec.run / (2 * STEP_BITE),
+    y: (spec.steps - 1) * spec.rise + spec.rise / (2 * STEP_BITE),
+  };
 }
 
 /* ---------------- the architecture ---------------- */
@@ -437,6 +487,49 @@ export function buildMonument(args: Omit<BuildArgs, "hotspots">) {
       .setY(worldY)
       .addScaledVector(SCREEN_UP, -composed.height / 2);
 
+    /* This storey's flight, in its own frame at this storey's own bearing, so
+       the split lands along the view axis at this storey's quarter and
+       nowhere else.
+
+       Where it may stand is not a matter of taste. The one rule the rest of
+       this file keeps — "placed where it cannot cover a word" — is the rule
+       the flight was breaking: cut for a run of 1.34 over eleven steps, it
+       swept 13.4 screen units from outboard-left clean across the reading
+       column and finished at +3.8, dead centre over the copy, standing 0.6
+       proud of the wall with its far half carried further toward the eye
+       still. On the contact storey that put four treads over the email, the
+       LinkedIn and the GitHub buttons: controls you could still press and no
+       longer see.
+
+       So it is solved, and the axis it is solved on is the vertical one.
+       Under the last line of an inscription is a band of plain shaft that
+       exists for nothing else, and a stair crossing a blank wall is what a
+       stair is for. The clearance below the last line is the only number
+       here; the rest comes off the flight's own measured reach, so a longer
+       storey, a wider tread or another step cannot walk it back up onto the
+       words.
+
+       Crossing the face rather than standing off it is also what stops the
+       device reading as debris. Cut to climb in from outboard, the foot of
+       the run began some twenty-four units out, which at the wide framing is
+       open sky — and a short chain of blocks adrift in open sky is rubble
+       whatever the geometry behind it is doing. Both ends overhang the keep's
+       silhouette by a tread and the middle lies across its wall, so the
+       quarter-turn tears the flight against stone, which is the only
+       background that reads the break as a break. */
+    const reach = flightReach(FLIGHT);
+    const flightFrame = faceFrame(i, worldY);
+    const flight = brokenFlight(registry, [palette.ml, palette.systems], FLIGHT);
+    flightFrame.add(flight);
+    flight.position.set(
+      // Centred on the face, so both ends overhang its silhouette evenly.
+      -reach.x / 2,
+      // Head of the run a clearance below the storey's last line.
+      -composed.height - FLIGHT_CLEARANCE - reach.y,
+      0.6
+    );
+    root.add(flightFrame);
+
     built.push({
       worldY,
       contentHeight: composed.height,
@@ -447,6 +540,7 @@ export function buildMonument(args: Omit<BuildArgs, "hotspots">) {
         fitHeight: composed.height + 1.4,
         facet,
         setInk: fadeable(facet, registry),
+        setFlight: fadeable(flightFrame, registry),
       },
     });
 
@@ -600,31 +694,6 @@ export function buildMonument(args: Omit<BuildArgs, "hotspots">) {
   foot.position.y =
     last.worldY - (last.contentHeight + STOREY_GAP) / SCREEN_LIFT - 3;
   root.add(foot);
-
-  /* The flight that only exists at each quarter, climbing the wall out of the
-     storey below. */
-  built.forEach((entry, i) => {
-    /* Big enough to be architecture. The flight was sized when it lived at
-       reading distance, where seven small treads below the copy were all
-       there was room for; the turn now happens pulled back, and at that
-       distance the old flight was gravel. It starts outboard of the reading
-       face and climbs in toward it, so its lower half is clear of the shaft
-       and tears open against open sky — the one moment the trick is on
-       show. */
-    const flight = brokenFlight(
-      registry,
-      [palette.ml, palette.systems],
-      { steps: 11, run: 1.34, rise: 0.74, tread: 1.5, split: 9.5 }
-    );
-    const frame = faceFrame(i, entry.worldY);
-    frame.add(flight);
-    flight.position.set(
-      -OCT.side(SHAFT_APOTHEM) / 2 - 4.4,
-      -entry.contentHeight - 2.6,
-      0.6
-    );
-    root.add(frame);
-  });
 
   root.updateMatrixWorld(true);
   return {
