@@ -34,4 +34,5 @@ for (const name of expected) {
 const stairs = new Box3().setFromObject(scene.getObjectByName("staircase"));
 assert(Math.abs(stairs.min.x) < 0.001 && Math.abs(stairs.max.x - 6) < 0.001, "Stair length contract");
 assert(Math.abs(stairs.max.y - 3) < 0.001, "Stair rise contract");
+assert(stairs.min.y < 0, "Stair foot must reach below the lower landing");
 console.log(`Validated ${expected.length} Blender modules, ${triangles} triangles, ${(bytes.length / 1024).toFixed(1)} KiB.`);

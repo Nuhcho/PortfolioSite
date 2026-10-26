@@ -34,12 +34,14 @@ export function buildResidents(registry: Registry, floor: number) {
     // Routes stay inside the quay; skipping per-frame bound rebuilds saves CPU.
     mesh.frustumCulled=false;group.add(mesh);return mesh;
   };
-  const torsos=instance(new THREE.CapsuleGeometry(.17,.29,3,6),residents.length,"resident-coats");
-  const heads=instance(new THREE.SphereGeometry(.145,8,5),residents.length,"resident-heads");
-  const hair=instance(new THREE.SphereGeometry(.15,8,4,0,Math.PI*2,0,Math.PI/2),residents.length,"resident-hair");
-  const limbs=instance(new THREE.CylinderGeometry(1,1,1,6),residents.length*8,"resident-limbs");
-  const shoes=instance(new THREE.SphereGeometry(1,6,4),residents.length*2,"resident-shoes");
-  const props=instance(new THREE.BoxGeometry(1,1,1),6,"resident-interaction-props");
+  const torsos=instance(new THREE.CapsuleGeometry(.17,.29,6,12),residents.length,"resident-coats");
+  const heads=instance(new THREE.SphereGeometry(.145,16,12),residents.length,"resident-heads");
+  const hair=instance(new THREE.SphereGeometry(.15,16,8,0,Math.PI*2,0,Math.PI/2),residents.length,"resident-hair");
+  const limbs=instance(new THREE.CylinderGeometry(1,1,1,12),residents.length*8,"resident-limbs");
+  const shoes=instance(new THREE.SphereGeometry(1,12,8),residents.length*2,"resident-shoes");
+  const props=instance(registry.roundedBox([1,1,1],.12),6,"resident-interaction-props");
+  const hands=instance(new THREE.SphereGeometry(.055,10,8),residents.length*2,"resident-hands");
+  const bags=instance(registry.roundedBox([.22,.26,.11],.035),4,"resident-satchels");
   const spout=instance(new THREE.CylinderGeometry(1,1,1,5),1,"watering-can-spout");
   const trickle=instance(new THREE.CylinderGeometry(1,1,1,4),1,"watering-trickle");
   spout.setColorAt(0,new THREE.Color(0x82a7a0));trickle.setColorAt(0,new THREE.Color(0xa2e7dd));
@@ -47,6 +49,8 @@ export function buildResidents(registry: Registry, floor: number) {
   const color=new THREE.Color();
   residents.forEach((r,i)=>{
     torsos.setColorAt(i,color.setHex(r.color));heads.setColorAt(i,color.setHex(r.skin));hair.setColorAt(i,color.setHex([0x54463c,0x6a5140,0x9b7952,0x3f4149][i%4]));
+    for(let k=0;k<2;k++)hands.setColorAt(i*2+k,color.setHex(r.skin));
+    if(i<4)bags.setColorAt(i,color.setHex(0xa57857));
     for(let k=0;k<8;k++)limbs.setColorAt(i*8+k,color.setHex(k<4?0x4b6474:r.color));
     for(let k=0;k<2;k++)shoes.setColorAt(i*2+k,color.setHex(0x47535b));
   });
@@ -88,6 +92,7 @@ export function buildResidents(registry: Registry, floor: number) {
       const lean=r.kind==="garden"?.18:0;
       put(torsos,i,[0,hip+.22,seated?.025:0],[1,1,1],lean);
       put(heads,i,[0,hip+.66,.015],[1,1,1]);put(hair,i,[0,hip+.67,.015],[1,1,1]);
+      if(i<4)put(bags,i,[.24,hip+.03,.02],[1,1,1],stride*.08);
       for(let side=0;side<2;side++){
         const x=side? .095:-.095,step=stride*(side?1:-1);
         const knee=[x,seated?hip-.15:.32,seated?.27:step*.13];
@@ -103,6 +108,7 @@ export function buildResidents(registry: Registry, floor: number) {
         if(r.kind==="garden"){handY=.5+gesture;handZ=.55;}
         if(r.kind==="fountain"){handY=.46+gesture*.3;handZ=.35;}
         const hand=[armX*(r.kind==="fountain"?.5:.8),hip+handY,handZ];
+        put(hands,i*2+side,hand,[1,1,1]);
         bone(i*8+4+side*2,[armX,hip+.43,0],elbow,.047);bone(i*8+5+side*2,elbow,hand,.043);
       }
       if(r.kind==="cafe")put(props,i-4,[.17,hip+.36+sip*.25,.36-sip*.24],[.11,.14,.11]);
@@ -116,7 +122,7 @@ export function buildResidents(registry: Registry, floor: number) {
       if(r.kind==="fountain")put(props,4,[0,hip+.46,.38],[.19,.12,.06]);
       if(r.kind==="bench")put(props,5,[0,hip+.31,.37],[.35,.025,.25],-.2);
     });
-    for(const mesh of [torsos,heads,hair,limbs,shoes,props,spout,trickle])mesh.instanceMatrix.needsUpdate=true;
+    for(const mesh of [torsos,heads,hair,limbs,shoes,props,spout,trickle,hands,bags])mesh.instanceMatrix.needsUpdate=true;
   };
   update(0,true);
   return {group,update};

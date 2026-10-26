@@ -8,14 +8,14 @@ export function buildGarden(registry: Registry, trees: At[], pots: At[], boxes: 
   const group = new THREE.Group();
   group.name = "wind-garden";
   const time = { value: 0 };
-  const stem: Piece[] = [], crowns: Piece[] = [], blades: Piece[] = [], flowers: Piece[] = [];
+  const stem: Piece[] = [], crowns: Piece[] = [], blades: Piece[] = [], flowers: Piece[] = [], petals: Piece[] = [];
   const greens = [0x64b98b, 0x83cfa0, 0x409c83, 0x9bd2a0];
   trees.forEach(([x, y, z], i) => {
     stem.push({ at: [x, y + 1, z], scale: [.15, 2, .15], color: 0xb57f55 });
-    for (let k = 0; k < 5; k++) {
+    for (let k = 0; k < 9; k++) {
       const a = k * 2.4 + i;
       crowns.push({ at: [x + Math.cos(a) * .55, y + 2.1 + k % 2 * .55, z + Math.sin(a) * .5],
-        scale: [1.0, .9 + k % 2 * .2, .85], color: greens[(i + k) % greens.length] });
+        scale: [.78 + k % 3 * .09, .82 + k % 2 * .2, .76], color: greens[(i + k) % greens.length] });
       stem.push({ at: [x + Math.cos(a) * .22, y + 1.65, z + Math.sin(a) * .22], scale: [.08, 1.1, .08], color: 0xb57f55, tilt: Math.cos(a) * .45 });
     }
   });
@@ -24,7 +24,14 @@ export function buildGarden(registry: Registry, trees: At[], pots: At[], boxes: 
       const a = i * 2.4 + index;
       const x = at[0] + Math.cos(a) * radius, z = at[2] + Math.sin(a) * radius;
       blades.push({ at: [x, at[1] + .2, z], scale: [.18, .4 + (i % 3) * .08, .12], color: greens[i % 4], tilt: Math.sin(a) * .45 });
-      if (i % 2 === 0) flowers.push({ at: [x, at[1] + .6, z], scale: [.18, .11, .18], color: i % 4 ? 0xffc967 : 0xff91b3 });
+      if (i % 2 === 0) {
+        flowers.push({ at: [x, at[1] + .62, z], scale: [.07, .055, .07], color: 0xffcf69 });
+        for (let petal = 0; petal < 5; petal++) {
+          const angle = petal * Math.PI * 2 / 5;
+          petals.push({ at: [x + Math.cos(angle) * .105, at[1] + .59, z + Math.sin(angle) * .105],
+            scale: [.09, .045, .09], color: i % 4 ? 0xffe5aa : 0xf99fba });
+        }
+      }
     }
   };
   pots.forEach((at, i) => planting(at, .4, 10, i));
@@ -50,7 +57,7 @@ export function buildGarden(registry: Registry, trees: At[], pots: At[], boxes: 
         shader.uniforms.gardenTime = time;
         shader.vertexShader = deform + shader.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nbendGarden(transformed);");
       };
-      material.customProgramCacheKey = () => "coastal-cel-garden-v1";
+      material.customProgramCacheKey = () => "coastal-soft-garden-v2";
     }
     const mesh = new THREE.InstancedMesh(registry.geometry(geometry), material, pieces.length);
     const dummy = new THREE.Object3D();
@@ -72,9 +79,10 @@ export function buildGarden(registry: Registry, trees: At[], pots: At[], boxes: 
     if (mesh.boundingSphere) mesh.boundingSphere.radius += .5;
     group.add(mesh);
   };
-  make(stem, new THREE.CylinderGeometry(1, 1.15, 1, 6), false);
-  make(crowns, new THREE.IcosahedronGeometry(1, 1), true);
-  make(blades, new THREE.SphereGeometry(1, 5, 3), true);
-  make(flowers, new THREE.IcosahedronGeometry(1, 0), true);
+  make(stem, new THREE.CylinderGeometry(1, 1.15, 1, 12), false);
+  make(crowns, new THREE.SphereGeometry(1, 16, 12), true);
+  make(blades, new THREE.SphereGeometry(1, 10, 8), true);
+  make(flowers, new THREE.SphereGeometry(1, 10, 6), true);
+  make(petals, new THREE.SphereGeometry(1, 8, 6), true);
   return { group, update: (elapsed: number, reduce: boolean) => { time.value = reduce ? 0 : elapsed; } };
 }

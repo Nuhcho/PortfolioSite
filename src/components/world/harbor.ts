@@ -40,8 +40,10 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
         vec2 p = seaPosition;
         float swell = sin(p.x * .075 + p.y * .11 + time * .13)
                     + sin(p.y * .065 - time * .09);
-        vec3 color = mix(deep, water, step(-.65, swell));
-        color = mix(color, light, step(1.2, swell));
+        vec3 color = mix(deep, water, smoothstep(-1.3, .45, swell));
+        color = mix(color, light, smoothstep(.8, 1.85, swell));
+        float smallWaves = sin(p.x*.48+p.y*.31+time*.7)*sin(p.y*.38-time*.45);
+        color = mix(color, light, smoothstep(.65, 1., smallWaves)*.12);
         // Advect the entire highlight field with a visible, gently varying current.
         vec2 current = vec2(time*.8 + sin(time*.4 + p.y*.08)*.3, -time*.32);
         vec2 grid = vec2((p.x-current.x)*.12, (p.y-current.y)*.26);
@@ -89,12 +91,10 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
   const coral = registry.lit(COLOR.madder, { side: THREE.DoubleSide });
   const brass = registry.lit(COLOR.saffron);
   const dockLamp = registry.lit(0xffd58e,{emissive:0xffb653,emissiveIntensity:0});
-  const cube = registry.geometry(new THREE.BoxGeometry(1, 1, 1));
-  const cylinder = registry.geometry(new THREE.CylinderGeometry(1, 1, 1, 8));
+  const cylinder = registry.geometry(new THREE.CylinderGeometry(1, 1, 1, 20));
   const addBox = (parent: THREE.Object3D, material: THREE.Material,
     size: [number, number, number], at: [number, number, number]) => {
-    const mesh = new THREE.Mesh(cube, material);
-    mesh.scale.set(...size);
+    const mesh = new THREE.Mesh(registry.roundedBox(size, .045), material);
     mesh.position.set(...at);
     parent.add(mesh);
     return mesh;
@@ -153,19 +153,36 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
     addBox(group, woodLight, [1.1, h * 2, 1.1], [x, deckY + h + .15, z]);
     addBox(group, timber, [.12, h * 2 + .04, 1.14], [x, deckY + h + .15, z]);
   });
+  const bolt = registry.geometry(new THREE.CylinderGeometry(.045,.045,.025,10));
+  for(let board=0;board<20;board+=2)for(const side of [-1,1]) {
+    const fastener=new THREE.Mesh(bolt,timber);
+    fastener.position.set(-7.2+board*.76,deckY+.15,end+side*2.0);group.add(fastener);
+  }
+  for(let turn=0;turn<3;turn++) {
+    const coil=new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(.25+turn*.085,.033,6,32)),rope);
+    coil.rotation.x=-Math.PI/2;coil.position.set(-4.2,deckY+.18,end+.8);group.add(coil);
+  }
+  const barrelProfile=[[0,0],[.36,0],[.42,.1],[.48,.55],[.45,1.0],[.37,1.15],[0,1.15]].map(([r,y])=>new THREE.Vector2(r,y));
+  const barrel=new THREE.Mesh(registry.geometry(new THREE.LatheGeometry(barrelProfile,24)),wood);
+  barrel.position.set(-5.2,deckY+.14,end-.6);group.add(barrel);
+  for(const y of [.18,.9]) {
+    const hoop=new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(y<.5?.44:.46,.035,8,32)),timber);
+    hoop.rotation.x=-Math.PI/2;hoop.position.set(-5.2,deckY+.14+y,end-.6);group.add(hoop);
+  }
 
   const boats: { group: THREE.Group; x: number; z: number; yaw: number; phase: number; updateShadows: () => void; cloth: ReturnType<typeof createSail>[]; nightLights: THREE.Group; reflection: ReturnType<typeof buildWaterGlint> }[] = [];
   const hullShape = new THREE.Shape();
   hullShape.moveTo(0, 3.0);
-  hullShape.lineTo(1.35, 1.1);
-  hullShape.lineTo(1.15, -2.1);
-  hullShape.lineTo(.75, -2.6);
+  hullShape.quadraticCurveTo(1.2, 2.0, 1.35, 1.1);
+  hullShape.quadraticCurveTo(1.4, -.6, 1.15, -2.1);
+  hullShape.quadraticCurveTo(1.05, -2.6, .75, -2.6);
   hullShape.lineTo(-.75, -2.6);
-  hullShape.lineTo(-1.15, -2.1);
-  hullShape.lineTo(-1.35, 1.1);
+  hullShape.quadraticCurveTo(-1.05, -2.6, -1.15, -2.1);
+  hullShape.quadraticCurveTo(-1.4, -.6, -1.35, 1.1);
+  hullShape.quadraticCurveTo(-1.2, 2.0, 0, 3.0);
   hullShape.closePath();
   const hull = registry.geometry(new THREE.ExtrudeGeometry(hullShape, {
-    depth: .8, bevelEnabled: true, bevelThickness: .15, bevelSize: .12, bevelSegments: 1, steps: 1,
+    depth: .8, bevelEnabled: true, bevelThickness: .15, bevelSize: .12, bevelSegments: 3, curveSegments: 12, steps: 1,
   }));
   // Leave clearance for the bow and its rocking motion beside the crosspiece.
   [[6.3, end - 6.4, -.2, 1], [-10, end + 5.7, .45, .78]].forEach(([x, z, yaw, scale], i) => {
@@ -186,6 +203,14 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
     // Deck slats, bow cleat and rigging keep the small boats readable up close.
     for (let k = 0; k < 6; k++) addBox(boat, woodLight, [1.65, .07, .12], [0, .04, -1.6 + k * .55]);
     addBox(boat, brass, [.5, .14, .18], [0, .2, 2.0]);
+    const fenderGeometry = registry.geometry(new THREE.CapsuleGeometry(.12, .3, 4, 10));
+    for (const side of [-1, 1]) for (const z of [-1.4, .6]) {
+      const fender = new THREE.Mesh(fenderGeometry, ivory);
+      fender.position.set(side * 1.2, -.05, z); boat.add(fender);
+      addBox(boat, rope, [.025, .45, .025], [side * 1.2, .22, z]);
+    }
+    const lifeRing = new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(.3, .085, 10, 28)), coral);
+    lifeRing.rotation.x = -Math.PI / 2; lifeRing.position.set(.4, .18, -1.75); boat.add(lifeRing);
     const rigging = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(0, 5.3, -.08), new THREE.Vector3(0, .15, 2.3),
       new THREE.Vector3(0, 5.3, -.08), new THREE.Vector3(0, .15, -2.3),
@@ -214,7 +239,7 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
 
   const birds: { group: THREE.Group; wings: THREE.Group[]; phase: number; height: number; reach: number; lift: number; speed: number }[] = [];
   const rand = seeded(0x534541);
-  const bodyGeometry = registry.geometry(new THREE.SphereGeometry(.16, 7, 4));
+  const bodyGeometry = registry.geometry(new THREE.SphereGeometry(.16, 16, 10));
   // A closed, swept wing retains an underside and an edge throughout the flap.
   // A single triangle vanishes edge-on and has no stable feather silhouette.
   const wingShape = new THREE.Shape();

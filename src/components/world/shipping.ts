@@ -19,21 +19,19 @@ export function buildShipping(registry: Registry, seaY: number) {
   const glass = registry.lit(0x3d92b2);
   const deckShadow = registry.lit(0x856c65);
   const nightWindow = registry.facade(0xffd18a), port = registry.facade(0xff786b), starboard = registry.facade(0x83e7ae);
-  const cube = registry.geometry(new THREE.BoxGeometry(1, 1, 1));
   const box = (parent: THREE.Object3D, material: THREE.Material, size: number[], at: number[]) => {
-    const mesh = new THREE.Mesh(cube, material);
-    mesh.scale.set(size[0], size[1], size[2]);
+    const mesh = new THREE.Mesh(registry.roundedBox(size, .055), material);
     mesh.position.set(at[0], at[1], at[2]);
     parent.add(mesh);
     return mesh;
   };
   const hullShape = new THREE.Shape();
-  hullShape.moveTo(0, 3.7); hullShape.lineTo(1.3, 1.8);
-  hullShape.lineTo(1.2, -2.8); hullShape.lineTo(.8, -3.4);
-  hullShape.lineTo(-.8, -3.4); hullShape.lineTo(-1.2, -2.8);
-  hullShape.lineTo(-1.3, 1.8); hullShape.closePath();
+  hullShape.moveTo(0, 3.7); hullShape.quadraticCurveTo(1.1, 2.8, 1.3, 1.8);
+  hullShape.quadraticCurveTo(1.4, -.6, 1.2, -2.8); hullShape.quadraticCurveTo(1.1, -3.4, .8, -3.4);
+  hullShape.lineTo(-.8, -3.4); hullShape.quadraticCurveTo(-1.1, -3.4, -1.2, -2.8);
+  hullShape.quadraticCurveTo(-1.4, -.6, -1.3, 1.8); hullShape.quadraticCurveTo(-1.1, 2.8, 0, 3.7); hullShape.closePath();
   const hull = registry.geometry(new THREE.ExtrudeGeometry(hullShape, {
-    depth: .75, bevelEnabled: true, bevelSize: .1, bevelThickness: .1, bevelSegments: 1, steps: 1,
+    depth: .75, bevelEnabled: true, bevelSize: .1, bevelThickness: .1, bevelSegments: 3, curveSegments: 12, steps: 1,
   }));
   const wakeMaterial = registry.track(new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
@@ -105,6 +103,10 @@ export function buildShipping(registry: Registry, seaY: number) {
       box(boat, glass, [1.3, .4, .025], [0, 1.95, -1.285]);
       box(boat, cream, [2, .15, 1.65], [0, 2.5, -2]);
       box(boat, coral, [.4, 1.1, .4], [.45, 2.9, -2.2]);
+      box(boat, navy, [.5,.12,.5],[.45,3.49,-2.2]);
+      box(boat, cream, [.36,.65,.04],[-.5,1.44,-1.275]);
+      box(boat, gold, [.07,.035,.07],[-.39,1.46,-1.23]);
+      for(let vent=0;vent<3;vent++)box(boat,navy,[.22,.035,.025],[.45,2.95+vent*.14,-1.985]);
     } else if (route.kind === "ferry") {
       box(boat, cream, [2, 1.3, 4.6], [0, 1.5, -.4]);
       for (const side of [-1, 1]) box(boat, glass, [.025, .5, 3.9], [side * 1.015, 1.7, -.3]);
@@ -112,6 +114,8 @@ export function buildShipping(registry: Registry, seaY: number) {
       for (let i = 0; i < 6; i++) box(boat, cream, [2.06, .6, .1], [0, 1.7, -2 + i * .65]);
       box(boat, gold, [2.2, .2, 4.8], [0, 2.25, -.4]);
       box(boat, navy, [.45, .8, .45], [0, 2.75, -1.5]);
+      box(boat, cream, [.55,.12,.55],[0,3.16,-1.5]);
+      for(const z of [-1,.5])for(const side of [-1,1])box(boat,wood,[.18,.25,.75],[side*.65,2.48,z]);
     } else if (route.kind === "sail") {
       box(boat, wood, [.13, 6, .13], [0, 3.7, 0]);
       cloth.push(
@@ -134,7 +138,7 @@ export function buildShipping(registry: Registry, seaY: number) {
       for (const side of [-1, 1]) {
         box(boat, cream, [.045, .045, 4.6], [side * 1.13, 1.13, -.65]);
         for (const z of [-2.6, -1.8, .5, 1.5]) box(boat, cream, [.045, .35, .045], [side * 1.13, .98, z]);
-        const ring = new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(.22, .07, 5, 12)), coral);
+        const ring = new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(.22, .07, 10, 24)), coral);
         ring.rotation.y = Math.PI / 2;
         ring.position.set(side * (route.kind === "cargo" ? .935 : 1.035), 1.3, -1.95);
         boat.add(ring);
@@ -144,10 +148,12 @@ export function buildShipping(registry: Registry, seaY: number) {
     }
     if (route.kind === "ferry") {
       for (let i = 0; i < 4; i++) {
-        const port = new THREE.Mesh(registry.geometry(new THREE.CircleGeometry(.13, 10)), glass);
+        const port = new THREE.Mesh(registry.geometry(new THREE.CircleGeometry(.13, 24)), glass);
         port.rotation.y = Math.PI / 2;
         port.position.set(1.32, .45, -1.7 + i * 1.05);
         boat.add(port);
+        const rim = new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(.15, .025, 8, 24)), gold);
+        rim.rotation.y = Math.PI / 2; rim.position.copy(port.position); rim.position.x += .008; boat.add(rim);
       }
     }
     for(const side of [-1,1]) box(nightDetails,side<0?port:starboard,[.18,.18,.18],[side*1.05,1.18,1.4]);

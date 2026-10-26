@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { ArchitectureAssets, ModelMaterials, ModelName } from "./models";
 
 /* The world is measured in units, and one unit is always UNIT_PX CSS pixels —
@@ -146,6 +147,7 @@ export class Registry {
   readonly lanternPositions={value:Array.from({length:5},()=>new THREE.Vector3())};
   private edgeMaterial?: THREE.LineBasicMaterial;
   private edges = new WeakMap<THREE.BufferGeometry, THREE.EdgesGeometry>();
+  private roundedBoxes = new Map<string, THREE.BufferGeometry>();
 
   constructor(private readonly assets?: ArchitectureAssets) {}
 
@@ -153,19 +155,30 @@ export class Registry {
     return this.assets?.instantiate(name, materials);
   }
 
+  /** Actual dimensions keep the bevel small and consistent on long beams. */
+  roundedBox(size: readonly number[], radius = .065) {
+    const bevel = Math.min(radius, Math.min(...size) * .22);
+    const key = `${size.join(",")}:${bevel}`;
+    let geometry = this.roundedBoxes.get(key);
+    if (!geometry) {
+      geometry = this.geometry(new RoundedBoxGeometry(size[0], size[1], size[2], 2, bevel));
+      this.roundedBoxes.set(key, geometry);
+    }
+    return geometry;
+  }
+
   track<T extends Disposable>(item: T): T {
     this.items.push(item);
     return item;
   }
 
-  /** Three explicit light bands are shared by every solid in the world. */
+  /** Softly blended coastal light keeps sculpted curves continuous. */
   lit(color: number, extra?: THREE.MeshStandardMaterialParameters) {
     const parameters = { ...extra };
     delete parameters.roughness;
     delete parameters.metalness;
     const material = this.track(new THREE.MeshToonMaterial({ ...parameters, color }));
-    // Explicit band thresholds preserve a bright sunlit face, a readable side
-    // face and a cool shadow face. Cast shadows still use Three's light pass.
+    // Retain cool recesses and warm highlights without abrupt contour bands.
     material.onBeforeCompile = (shader) => {
       shader.uniforms.lanternNight=this.lanternNight;
       shader.uniforms.lanternPositions=this.lanternPositions;
@@ -194,13 +207,12 @@ ${shader.fragmentShader}`
       shader.fragmentShader = shader.fragmentShader.replace("#include <gradientmap_pars_fragment>", `
         vec3 getGradientIrradiance(vec3 normal, vec3 lightDirection) {
           float facing = dot(normal, lightDirection);
-          if (facing > .65) return vec3(1.0);
-          if (facing > -.1) return vec3(.40, .50, .64);
-          return vec3(.28, .36, .48);
+          vec3 shade = mix(vec3(.30, .39, .51), vec3(.55, .64, .73), smoothstep(-.35, .3, facing));
+          return mix(shade, vec3(1.0), smoothstep(.3, .9, facing));
         }
       `);
     };
-    material.customProgramCacheKey = () => "coastal-cel-three-bands-lanterns-v3";
+    material.customProgramCacheKey = () => "coastal-soft-light-lanterns-v4";
     return material;
   }
 
@@ -212,7 +224,7 @@ ${shader.fragmentShader}`
       this.edges.set(mesh.geometry, geometry);
     }
     this.edgeMaterial ??= this.track(new THREE.LineBasicMaterial({
-      color: 0x31566a, transparent: true, opacity: 0.36, depthWrite: false,
+      color: 0x31566a, transparent: true, opacity: 0.16, depthWrite: false,
     }));
     mesh.add(new THREE.LineSegments(geometry, this.edgeMaterial));
   }

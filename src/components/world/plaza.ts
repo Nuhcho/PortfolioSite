@@ -21,13 +21,14 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   const cube = registry.geometry(new THREE.BoxGeometry(1, 1, 1));
   const box = (parent: THREE.Object3D, material: THREE.Material,
     size: [number, number, number], at: [number, number, number], outline = false) => {
-    const mesh = new THREE.Mesh(cube, material);
-    mesh.scale.set(...size);
+    const mesh = new THREE.Mesh(registry.roundedBox(size), material);
     mesh.position.set(...at);
     parent.add(mesh);
     if (outline) registry.outline(mesh);
     return mesh;
   };
+  const baluster = registry.geometry(new THREE.LatheGeometry(
+    [[.085,0],[.085,.08],[.055,.12],[.08,.28],[.095,.36],[.065,.48],[.045,.62],[.075,.68],[.075,.75]].map(([r,y])=>new THREE.Vector2(r,y)),16));
   const limestone = registry.lit(0xfff1d5);
   const paving = registry.lit(0xf1d4ac);
   const terracotta = registry.lit(0xf07561);
@@ -92,12 +93,19 @@ export function buildPlaza(registry: Registry, palette: Palette) {
     const tilework = new THREE.Group();
     tilework.position.set(...at);
     tilework.rotation.y = yaw;
-    const pitch = Math.atan2(rise, d);
-    for (let x = -w + .5; x < w; x += .75) {
+    const roll = registry.geometry(new THREE.CylinderGeometry(.075, .075, Math.hypot(d, rise), 10));
+    const up = new THREE.Vector3(0, 1, 0);
+    for (let x = -w + .25; x < w; x += .55) {
       for (const side of [-1, 1]) {
-        const seam = box(tilework, roofSeam, [.035, .035, Math.hypot(d, rise)], [x, rise / 2 + .025, side * d / 2]);
-        seam.rotation.x = side * pitch;
+        const tile = new THREE.Mesh(roll, roofSeam);
+        tile.position.set(x, rise / 2 + .065, side * d / 2);
+        tile.quaternion.setFromUnitVectors(up, new THREE.Vector3(0, -rise, side * d).normalize());
+        tilework.add(tile);
       }
+    }
+    for (let course = 1; course <= 3; course++) for (const side of [-1, 1]) {
+      const along = course / 4;
+      box(tilework, terracotta, [width, .045, .055], [0, rise * (1 - along) + .055, side * d * along]);
     }
     box(tilework, terracotta, [width + .1, .16, .22], [0, rise + .06, 0]);
     parent.add(tilework);
@@ -132,7 +140,7 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   arcade(town, 8, 4.4, 3.5, [-19.2, floor, 1], Math.PI / 2);
   box(town, teal, [4.4, .3, 20.8], [-19.2, floor + 3.65, 1]);
   for (let z = -8.6; z <= 10.6; z += 2.4) {
-    box(town, limestone, [.2, .75, .2], [-17.12, floor + 4.17, z]);
+    const spindle=new THREE.Mesh(baluster,limestone);spindle.position.set(-17.12,floor+3.8,z);town.add(spindle);
   }
   box(town, limestone, [.22, .2, 20.8], [-17.12, floor + 4.6, 1]);
   const pavilion = registry.model("pavilion", materials(teal));
@@ -178,31 +186,40 @@ export function buildPlaza(registry: Registry, palette: Palette) {
     stairRun(town, site, stone, new THREE.Vector3(15.2, 1.7, z), new THREE.Vector3(17.6, floor, z));
     [-1, 1].forEach((side) => {
       box(town, limestone, [6.2, .16, .16], [12.1, 2.45, z + side * 1.4]);
-      for (const x of [9.1, 10.6, 12.1, 13.6, 15.1])
-        box(town, limestone, [.14, .75, .14], [x, 2.075, z + side * 1.4]);
+      for (const x of [9.1, 10.6, 12.1, 13.6, 15.1]) {
+        const spindle=new THREE.Mesh(baluster,limestone);spindle.position.set(x,1.7,z+side*1.4);town.add(spindle);
+      }
     });
   }
+  // Meet the loggia's front edge; embedding the final tread in its roof
+  // creates two coplanar surfaces that flicker as the camera moves.
   stairRun(town, site, stone, new THREE.Vector3(-19.2, floor, 17.2),
-    new THREE.Vector3(-19.2, floor + 3.8, 11.2));
+    new THREE.Vector3(-19.2, floor + 3.8, 1 + 20.8 / 2));
 
   // The centre of the square is a fountain, not a building or a staircase.
   const fountain = new THREE.Group();
   fountain.position.set(-6, floor, 3);
   town.add(fountain);
   const cylinder = (parent: THREE.Object3D, material: THREE.Material, top: number,
-    bottom: number, height: number, at: [number, number, number], segments = 12) => {
+    bottom: number, height: number, at: [number, number, number], segments = 32) => {
     const model = new THREE.Mesh(registry.geometry(new THREE.CylinderGeometry(top, bottom, height, segments)), material);
     model.position.set(...at);
     parent.add(model);
     return model;
   };
-  cylinder(fountain, limestone, 3.35, 3.65, .55, [0, .275, 0]);
-  const rim = new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(3.13, .22, 4, 20)), limestone);
+  const turnedStone = (profile: [number, number][]) => {
+    const mesh = new THREE.Mesh(registry.geometry(new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 48)), limestone);
+    fountain.add(mesh);
+  };
+  turnedStone([[0,0],[3.3,0],[3.58,.08],[3.65,.2],[3.52,.4],[3.25,.55],[3.0,.56],[2.92,.52],[0,.52]]);
+  const rim = new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(3.13, .18, 12, 64)), limestone);
   rim.rotation.x = Math.PI / 2;
   rim.position.y = .58;
   fountain.add(rim);
-  cylinder(fountain, limestone, .3, .55, 1.8, [0, 1.45, 0]);
-  cylinder(fountain, limestone, 1.35, .48, .5, [0, 2.55, 0]);
+  turnedStone([[0,.55],[.58,.55],[.62,.67],[.45,.78],[.32,.95],[.25,1.4],[.32,1.9],[.5,2.22],[.42,2.32],[0,2.32]]);
+  turnedStone([[0,2.3],[.48,2.3],[.65,2.36],[1.05,2.48],[1.3,2.65],[1.35,2.76],[1.25,2.82],[1.17,2.78],[0,2.78]]);
+  const bowlLip = new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(1.27, .075, 10, 48)), limestone);
+  bowlLip.rotation.x = -Math.PI / 2; bowlLip.position.y = 2.8; fountain.add(bowlLip);
   cylinder(fountain, palette.sand, .16, .24, .7, [0, 3.1, 0]);
   const fountainWater = buildFountainWater(registry);
   fountain.add(fountainWater.group);
@@ -211,18 +228,27 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   // Cafe tables, parasols, benches and planted edges make the square inhabited.
   [[1, -3], [2, 4], [.5, 11]].forEach(([x, z], i) => {
     cylinder(town, wood, .07, .07, 2.9, [x, floor + 1.45, z], 6);
-    cylinder(town, i % 2 ? palette.ml : limestone, .04, 1.65, .75, [x, floor + 3.15, z], 8);
+    const canopy = new THREE.Group();
+    canopy.position.set(x, floor + 3.15, z);
+    const profile = [[0,.375],[.28,.33],[.9,.12],[1.65,-.32],[1.66,-.4],[.9,.04],[.28,.25],[0,.3]].map(([r,y]) => new THREE.Vector2(r,y));
+    const panel = registry.geometry(new THREE.LatheGeometry(profile, 2, 0, Math.PI / 10));
+    for (let segment = 0; segment < 20; segment++) {
+      const fabric = new THREE.Mesh(panel, segment % 4 < 2 ? limestone : i % 2 ? palette.ml : palette.sand);
+      fabric.rotation.y = segment * Math.PI / 10; canopy.add(fabric);
+    }
+    town.add(canopy);
     cylinder(town, wood, .08, .08, .85, [x, floor + .425, z], 6);
     cylinder(town, limestone, .75, .75, .13, [x, floor + .9, z]);
     [-1, 1].forEach((side) => {
-      box(town, wood, [.6, .13, .65], [x + side * 1.15, floor + .5, z]);
-      box(town, wood, [.12, .5, .6], [x + side * 1.15, floor + .25, z]);
+      cylinder(town, wood, .37, .37, .12, [x + side * 1.15, floor + .5, z], 24);
+      for (const dx of [-.22,.22]) for (const dz of [-.2,.2])
+        cylinder(town, shutter, .035, .045, .48, [x + side * 1.15 + dx, floor + .24, z + dz], 12);
     });
   });
   [[-13, -3], [-13, 10], [20, 17]].forEach(([x, z]) => {
-    box(town, wood, [3, .18, .9], [x, floor + .7, z]);
+    for (let slat = 0; slat < 4; slat++) box(town, wood, [3, .12, .18], [x, floor + .7, z - .33 + slat * .22]);
     [-1, 1].forEach((side) => box(town, palette.rockDeep, [.25, .6, .8], [x + side, floor + .3, z]));
-    box(town, wood, [3, .5, .12], [x, floor + 1.05, z - .4]);
+    for (let slat = 0; slat < 3; slat++) box(town, wood, [3, .12, .12], [x, floor + .94 + slat * .16, z - .4 - slat * .035]);
   });
   [[-21, 18], [-12, 18], [3.5, 16], [20, 10], [20, -15]].forEach(([x, z]) => {
     box(town, limestone, [1.65, .7, 1.65], [x, floor + .35, z]);
@@ -306,7 +332,9 @@ export function buildPlaza(registry: Registry, palette: Palette) {
     town.add(tile);
   }
   for (const [x, z] of [[-15, 7], [-15, 14], [5.7, 5], [20, 13]]) {
-    cylinder(town, terracotta, .6, .4, .85, [x, floor + .425, z], 8);
+    cylinder(town, terracotta, .6, .4, .85, [x, floor + .425, z], 32);
+    const lip = new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(.58, .055, 8, 32)), terracotta);
+    lip.rotation.x = -Math.PI / 2; lip.position.set(x, floor + .83, z); town.add(lip);
 
   }
   const garden = buildGarden(registry,

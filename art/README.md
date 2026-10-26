@@ -23,7 +23,8 @@ The script rebuilds the source, GLB, and `monument-kit.json` dimensions report.
 It supports Blender 2.78 (installed on the development machine) and newer
 versions. A small embedded GLB exporter allows 2.78 to produce glTF 2.0 without
 installing an exporter add-on. Modelling uses real extruded arch profiles,
-recalculated outward normals, flat shading, and a continuous stair profile.
+recalculated outward normals, beveled masonry, smoothly shaded domes, and a
+continuous stair profile with gently rounded nosings.
 Export rejects non-manifold mesh edges and zero-area triangles.
 
 Changing the Python source and rebuilding regenerates the .blend. To preserve
@@ -40,8 +41,9 @@ finite vertices, unit normals, material roles and the stair fitting dimensions.
 
 ## Waterfront rendering
 
-The runtime uses a shared three-band `MeshToonMaterial` ramp for the kit and
-procedural solids. `harbor.ts` adds a timber pier joined to the entrance apron,
+The runtime uses a softly blended `MeshToonMaterial` ramp for the kit and
+procedural solids. Rounded boxes share cached geometry by dimensions and bevel
+radius; foliage, petals, and residents use instanced meshes. `harbor.ts` adds a timber pier joined to the entrance apron,
 boats, pilings, ropes, seagulls, foam rings, and a quantized water shader.
 The ocean and wildlife are excluded from framing calculations, while the pier
 and boats are included. Reduced-motion preference freezes the scenery.

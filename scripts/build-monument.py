@@ -37,7 +37,7 @@ def begin(name):
     active = name
     modules[name] = []
 
-def mesh(name, verts, faces, role='stone'):
+def mesh(name, verts, faces, role='stone', bevel=0):
     data = bpy.data.meshes.new(name)
     data.from_pydata([(x, -z, y) for x, y, z in verts], [], faces)
     data.update(calc_edges=True)
@@ -54,6 +54,10 @@ def mesh(name, verts, faces, role='stone'):
     bm = bmesh.new()
     bm.from_mesh(data)
     bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    if bevel:
+        bmesh.ops.bevel(bm, geom=list(bm.verts)+list(bm.edges), offset=bevel, segments=3,
+                        profile=.5, vertex_only=False, clamp_overlap=True)
+        bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
     if any(not edge.is_manifold for edge in bm.edges):
         raise ValueError("Non-manifold model: " + name)
     bm.to_mesh(data)
@@ -66,7 +70,19 @@ def cube(name, size, at, role='stone'):
     a, b, c = [v / 2 for v in size]
     verts = [(x+sx*a, y+sy*b, z+sz*c) for sx, sy, sz in
              [(-1,-1,-1),(1,-1,-1),(1,1,-1),(-1,1,-1),(-1,-1,1),(1,-1,1),(1,1,1),(-1,1,1)]]
-    return mesh(name, verts, [(0,3,2,1),(4,5,6,7),(0,1,5,4),(3,7,6,2),(0,4,7,3),(1,2,6,5)], role)
+    return mesh(name, verts, [(0,3,2,1),(4,5,6,7),(0,1,5,4),(3,7,6,2),(0,4,7,3),(1,2,6,5)], role,
+                bevel=min(.045, min(size)*.16))
+
+def cylinder(name, radius, height, at, role='stone'):
+    count=32
+    verts=[(at[0]+radius*math.cos(i*2*math.pi/count),at[1]+side*height/2,
+            at[2]+radius*math.sin(i*2*math.pi/count)) for side in [-1,1] for i in range(count)]
+    faces=[tuple(reversed(range(count))),tuple(range(count,2*count))]
+    faces += [(i,(i+1)%count,(i+1)%count+count,i+count) for i in range(count)]
+    obj=mesh(name,verts,faces,role)
+    for poly in obj.data.polygons:
+        poly.use_smooth=abs(poly.normal.z)<.5
+    return obj
 
 def prism(name, profile, thickness, z=0, yaw=0, at=(0,0,0), role='stone'):
     # An extruded profile creates a real opening, with inner jamb and vault faces.
@@ -85,13 +101,13 @@ def arch_wall(name, width, height, opening, spring, thickness, z=0, yaw=0, at=(0
     r = opening/2
     # One concave wall profile; no overlaid dark cylinders or coplanar masks.
     profile = [(-width/2,0),(-width/2,height),(width/2,height),(width/2,0),(r,0),(r,spring)]
-    profile += [(r*math.cos(i*math.pi/16), spring+r*math.sin(i*math.pi/16)) for i in range(1,17)]
+    profile += [(r*math.cos(i*math.pi/32), spring+r*math.sin(i*math.pi/32)) for i in range(1,33)]
     profile += [(-r,0)]
     return prism(name, profile, thickness, z, yaw, at, role)
 
 def dome(name, radius, at, role='accent'):
     verts, faces = [], []
-    segments, rings = 24, 6
+    segments, rings = 40, 12
     for j in range(rings):
         phi = (math.pi/2) * j/rings
         for i in range(segments):
@@ -106,7 +122,10 @@ def dome(name, radius, at, role='accent'):
     for i in range(segments):
         faces.append(((rings-1)*segments+i,(rings-1)*segments+(i+1)%segments,len(verts)-1))
     faces.append(tuple(reversed(range(segments))))
-    return mesh(name,verts,faces,role)
+    obj=mesh(name,verts,faces,role)
+    for poly in obj.data.polygons:
+        poly.use_smooth=poly.normal.z>-.5
+    return obj
 
 def tower_body():
     cube('Tower foundation',(2.2,.3,2.2),(0,.15,0),'trim')
@@ -117,12 +136,14 @@ def tower_body():
         for z in [-.89,.89]: cube('Tower corner',(.22,5.7,.22),(x,3.15,z))
     cube('Interior floor',(1.58,.08,1.58),(0,.34,0),'recess')
     cube('Upper cornice',(2.24,.3,2.24),(0,6.15,0),'trim')
+    cube('Cornice shadow course',(2.12,.1,2.12),(0,5.94,0),'shadow')
+    cube('Foundation moulding',(2.08,.12,2.08),(0,.36,0),'trim')
 
 begin('tower_dome')
 tower_body()
-cube('Drum',(1.7,.35,1.7),(0,6.475,0),'shadow')
+cylinder('Drum',.85,.35,(0,6.475,0),'shadow')
 dome('Stone dome',.84,(0,6.65,0))
-cube('Finial',(.16,.3,.16),(0,7.64,0),'trim')
+cylinder('Finial',.08,.3,(0,7.64,0),'trim')
 begin('tower_steps')
 tower_body()
 for i,(w,h) in enumerate([(1.8,.55),(1.2,.5),(.65,.45)]):
@@ -137,7 +158,7 @@ for x in [-.89,.89]:
     for z in [-.89,.89]: cube('Pavilion corner',(.22,2.6,.22),(x,1.65,z))
 cube('Pavilion cornice',(2.3,.28,2.3),(0,3.09,0),'trim')
 dome('Pavilion dome',.92,(0,3.23,0))
-cube('Pavilion finial',(.14,.24,.14),(0,4.27,0),'trim')
+cylinder('Pavilion finial',.07,.24,(0,4.27,0),'trim')
 begin('arcade')
 # A 2.6-unit gallery bay, with openings through both sides and a solid deck.
 for z in [-.9,.9]:
@@ -152,12 +173,22 @@ cube('Vault ceiling',(2.6,.6,2.2),(0,2.2,0),'trim')
 begin('staircase')
 # A watertight stair flight with an underside following the treads.
 # Keeping a constant stringer thickness avoids giant triangular wedges.
-steps=36
+# Broad treads survive the distant orthographic view, including short bridges.
+steps=12
+# Extend below the first riser so the foot still meets its lower landing.
+stringer=.4
 upper=[]
 for k in range(steps):
-    for point in [(6*k/steps,3*k/steps),(6*k/steps,3*(k+1)/steps),(6*(k+1)/steps,3*(k+1)/steps)]:
+    x,y=6*k/steps,3*(k+1)/steps
+    # Round just the exposed nosing in the profile, preserving flat landings.
+    nose=.025
+    points=[(x,3*k/steps)]
+    points += [(x+nose+nose*math.cos(math.pi-j*math.pi/8),
+                y-nose+nose*math.sin(math.pi-j*math.pi/8)) for j in range(5)]
+    points += [(6*(k+1)/steps,y)]
+    for point in points:
         if not upper or point!=upper[-1]: upper.append(point)
-profile=upper+[(x,y-.14) for x,y in reversed(upper)]
+profile=upper+[(x,y-stringer) for x,y in reversed(upper)]
 # Drop collinear endpoint vertices before triangulating the concave sides.
 changed=True
 while changed:
@@ -173,7 +204,7 @@ for polygon in stair.data.polygons:
 begin('window')
 r=.5
 profile=[(-r,0),(r,0),(r,1.5)]
-profile += [(r*math.cos(i*math.pi/16),1.5+r*math.sin(i*math.pi/16)) for i in range(1,17)]
+profile += [(r*math.cos(i*math.pi/32),1.5+r*math.sin(i*math.pi/32)) for i in range(1,33)]
 prism('Recessed arch silhouette',profile,.08,z=.05,role='recess')
 begin('corbel')
 for i,(w,h) in enumerate([(2,.45),(1.5,.5),(.9,.55)]):
@@ -181,7 +212,7 @@ for i,(w,h) in enumerate([(2,.45),(1.5,.5),(.9,.55)]):
     cube('Corbel course',(w,h,w),(0,y,0),'shadow')
 
 # Bake, triangulate and export a minimal standards-compliant glTF 2.0 binary.
-# Flat vertex normals preserve the illustration's crisp stone faces.
+# Flat masonry faces meet beveled edges; domes retain smooth vertex normals.
 blob=bytearray(); views=[]; accessors=[]; meshes=[]; nodes=[]
 role_ids={role:i for i,role in enumerate(ROLES)}
 def accessor(values, dimension, kind, bounds=False):
@@ -210,8 +241,8 @@ for name, objects in modules.items():
                 raise ValueError("Degenerate triangle: " + obj.name)
             for face in bm.faces:
                 if obj.data.materials[face.material_index].name != role: continue
-                normal=face.normal
                 for vert in face.verts:
+                    normal=vert.normal if face.smooth else face.normal
                     v=vert.co
                     positions.append((v.x,v.z,-v.y))
                     normals.append((normal.x,normal.z,-normal.y))

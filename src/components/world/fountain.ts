@@ -35,9 +35,9 @@ export function buildFountainWater(registry: Registry) {
     const a = i * Math.PI / 2, x = Math.cos(a), z = Math.sin(a);
     const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(x * 1.17, 2.85, z * 1.17), new THREE.Vector3(x * 1.7, 2.94, z * 1.7), new THREE.Vector3(x * 2.15, .65, z * 2.15));
     curves.push(curve);
-    group.add(new THREE.Mesh(registry.geometry(new THREE.TubeGeometry(curve, 24, .045, 5, false)), stream));
+    group.add(new THREE.Mesh(registry.geometry(new THREE.TubeGeometry(curve, 32, .045, 10, false)), stream));
   }
-  const droplets = new THREE.InstancedMesh(registry.geometry(new THREE.IcosahedronGeometry(.05, 0)), registry.lit(0xd0ffef), 32);
+  const droplets = new THREE.InstancedMesh(registry.geometry(new THREE.SphereGeometry(.05, 8, 6)), registry.lit(0xd0ffef), 32);
   droplets.userData.noCastShadow = true;
   droplets.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   droplets.frustumCulled = false; group.add(droplets);
