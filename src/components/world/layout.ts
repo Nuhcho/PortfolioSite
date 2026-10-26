@@ -41,6 +41,13 @@ export function screenBox(object: THREE.Object3D): ScreenBox {
 
   object.traverse((child) => {
     if (!(child instanceof THREE.Mesh) || !child.visible) return;
+    // Infinite water and moving wildlife provide scenery, not camera bounds.
+    let ancestor: THREE.Object3D | null = child;
+    while (ancestor) {
+      if (ancestor.userData.excludeFromFraming) return;
+      if (ancestor === object) break;
+      ancestor = ancestor.parent;
+    }
     const position = child.geometry.getAttribute("position");
     if (!position) return;
     for (let i = 0; i < position.count; i += 1) {

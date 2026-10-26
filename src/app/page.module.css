@@ -4,7 +4,7 @@
  * Two jobs, and which one it is doing depends on `html[data-world]`:
  *
  *   off — no JavaScript, or no WebGL. The mirror is the page: a plain,
- *         on-world reading document in the same twilight palette.
+ *         on-world reading document: paper, charcoal, one band of sky.
  *   on  — the world is live. The mirror clips out of view but stays in the
  *         accessibility tree and keeps its band heights, which is what the
  *         camera measures its travel against.
@@ -28,9 +28,11 @@
 }
 
 .wordmark {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 .nav ul {
@@ -44,14 +46,14 @@
 .nav a {
   font-size: var(--text-label);
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-muted);
   text-decoration: none;
 }
 
 .nav a:hover {
-  color: var(--accent-systems);
+  color: var(--text);
 }
 
 .band {
@@ -72,13 +74,52 @@
   max-width: 16ch;
 }
 
+/* The opening band is the one piece of sky the fallback keeps: the first of
+   the world's gradients, with the type set white and centred over it the way
+   the game's own title screens are. */
+.hero {
+  margin: 0 calc(-1 * clamp(20px, 5vw, 48px));
+  padding: clamp(48px, 8vw, 96px) clamp(20px, 5vw, 48px);
+  background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
+  text-align: center;
+}
+
+.hero > * {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Muted ink drops under 3:1 on the pink end of the sky; over it, everything
+   is set in full charcoal. */
+.inner.hero h1,
+.inner.hero h2,
+.inner.hero p,
+.inner.hero strong {
+  color: var(--text) !important;
+}
+
+.supporting {
+  display: inline-block;
+  padding-bottom: 10px;
+  border-bottom: 2px solid currentColor;
+  font-size: var(--text-label) !important;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text) !important;
+}
+
+.hero .actions {
+  justify-content: center;
+}
+
 .inner h2 {
   font-size: var(--text-section);
   margin-top: clamp(32px, 5vw, 48px);
 }
 
 .inner h3 {
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display);
   font-size: var(--text-title);
   margin-top: clamp(24px, 4vw, 36px);
 }
@@ -95,8 +136,8 @@
 }
 
 .lead {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 500;
   font-size: clamp(1.2rem, 1.9vw, 1.5rem);
   line-height: 1.34;
   color: var(--text) !important;
@@ -113,11 +154,13 @@
   display: inline-flex;
   padding: 13px 26px;
   border-radius: var(--radius-sm);
-  background: var(--rose);
+  background: var(--sand);
   box-shadow: var(--edge-md) 0 0 0 var(--block-edge), 0 var(--edge-md) 0 0 var(--block-edge);
   color: var(--text);
   font-weight: 700;
-  font-size: 0.96rem;
+  font-size: var(--text-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
   text-decoration: none;
 }
 
@@ -160,37 +203,90 @@
   cursor: pointer;
 }
 
-/* ---- world live ---- */
-
+/* The reading column stays HTML; the low plaza occupies the water beside it. */
 :global(html[data-world="on"]) .mirror {
+  width: 43%;
   max-width: none;
   margin: 0;
-  padding: 0;
-  /* The bands still define the scroll track, but they are a full-page sheet
-     lying over the canvas — without this they would swallow every click meant
-     for the world. Keyboard focus is unaffected. */
-  pointer-events: none;
+  padding: 100px clamp(26px, 4vw, 64px) 40px;
+  background: #fffaf0;
+  border-right: 1px solid #d7dccb;
+  pointer-events: auto;
 }
 
-:global(html[data-world="on"]) .nav,
-:global(html[data-world="on"]) .inner {
-  /* Clipped, never removed: still focusable, still read aloud, still crawled. */
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+:global(html[data-world="on"]) .nav {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 5;
+  min-height: 66px;
+  padding: 22px clamp(24px, 4vw, 60px);
+  background: #fffaf0;
+  border-bottom: 1px solid #d7dccb;
 }
 
-/* Band heights are the scroll track the camera's travel is measured against:
-   one island per band, with room to dwell at each before the next. */
 :global(html[data-world="on"]) .band {
-  min-height: 132vh;
-  padding: 0;
-  border: none;
+  min-height: 0;
+  padding: 50px 0 60px;
+  scroll-margin-top: 80px;
 }
 
-:global(html[data-world="on"]) .band:last-child {
-  min-height: 118vh;
+:global(html[data-world="on"]) .band + .band {
+  border-top: 1px solid #d7dccb;
 }
+
+:global(html[data-world="on"]) .hero {
+  margin: 0;
+  padding: 0;
+  background: none;
+  text-align: left;
+}
+
+:global(html[data-world="on"]) .hero > * {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+:global(html[data-world="on"]) .hero .actions { justify-content: flex-start; }
+
+:global(html[data-world="on"]) .inner h1 {
+  font-size: clamp(2.3rem, 3.6vw, 3.7rem);
+  line-height: 1.12;
+  letter-spacing: -.025em;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+:global(html[data-world="on"]) .inner h2 {
+  font-size: clamp(1.25rem, 1.6vw, 1.65rem);
+  letter-spacing: .07em;
+}
+
+:global(html[data-world="on"]) .band > .inner > h2:first-child { margin-top: 0; }
+:global(html[data-world="on"]) .inner h3 { letter-spacing: 0; }
+:global(html[data-world="on"]) .supporting { font-size: .7rem !important; letter-spacing: .12em; }
+:global(html[data-world="on"]) .lead { font-size: 1.25rem; }
+:global(html[data-world="on"]) .inner p { line-height: 1.65; }
+:global(html[data-world="on"]) .inner article { padding-top: 8px; }
+:global(html[data-world="on"]) .inner article + article { margin-top: 28px; padding-top: 8px; border-top: 1px solid #dedfce; }
+:global(html[data-world="on"]) .actions a { padding: 12px 16px; font-size: .68rem; letter-spacing: .07em; border-radius: 3px; box-shadow: none; }
+:global(html[data-world="on"]) .inner button { border-radius: 3px; box-shadow: none; border: 1px solid #d6d9c7; background: transparent; }
+:global(html[data-world="on"]) .inner button:hover { background: #f2eddc; }
+:global(html[data-world="on"]) .inner [hidden] { display: none; }
+
+@media (max-width: 900px) {
+  :global(html[data-world="on"]) .mirror {
+    width: 100%;
+    padding: calc(46vh + 96px) 0 0;
+    border-right: none;
+    background: transparent;
+  }
+  :global(html[data-world="on"]) .nav { gap: 14px; padding: 16px 20px; }
+  :global(html[data-world="on"]) .wordmark { font-size: .68rem; }
+  :global(html[data-world="on"]) .nav ul { width: 100%; margin: 0; justify-content: space-between; gap: 10px; }
+  :global(html[data-world="on"]) .nav a { font-size: .6rem; letter-spacing: .06em; }
+  :global(html[data-world="on"]) .band { background: #fffaf0; padding: 38px 24px 48px; scroll-margin-top: 110px; }
+  :global(html[data-world="on"]) .inner h1 { font-size: clamp(2.5rem, 9vw, 3.7rem); }
+}
+
+/* The full reading document remains the fallback when WebGL is unavailable. */
+:global(html[data-world="on"]) .mirror { display: none; }

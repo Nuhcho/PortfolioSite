@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { INK, Registry, TYPE, type Palette } from "./theme";
+import { INK, Registry, TRACK, TYPE, type Palette } from "./theme";
 import { measureInline, paintText, type Run } from "./text";
 
 /* Shared constructors for the things the world is assembled from: lit stone
@@ -133,16 +133,21 @@ export function controlBlock(
 ): Control {
   const isPrimary = spec.tone === "primary";
   const isPill = spec.tone === "pill";
-  const size = isPill ? TYPE.meta : TYPE.body;
+  /* Buttons are set the way Monument Valley sets its own calls to act — bold,
+     capitals, tracked. Links stay as written: an address in capitals is an
+     address nobody can copy by eye. */
+  const size = isPill ? TYPE.meta : TYPE.label * 1.12;
+  const tracking = isPill ? 0 : TRACK.label;
   const color = isPill ? INK.systems : INK.text;
-  const labelWidth = measureInline({ text: spec.label, size, weight: 700 });
-  const padX = isPill ? 0.36 : 0.52;
-  const padY = isPill ? 0.22 : 0.28;
+  const label = isPill ? spec.label : spec.label.toUpperCase();
+  const labelWidth = measureInline({ text: label, size, weight: 700, tracking });
+  const padX = isPill ? 0.36 : 0.62;
+  const padY = isPill ? 0.22 : 0.34;
 
   const painted = paintText({
     // The canvas is cut to the label, so the label must not be wrapped to it.
     width: labelWidth * 1.02 + 0.04,
-    runs: [{ text: spec.label, size, weight: 700, color, nowrap: true }],
+    runs: [{ text: label, size, weight: 700, tracking, color, nowrap: true }],
   });
 
   const group = new THREE.Group();
@@ -152,7 +157,15 @@ export function controlBlock(
   const width = labelWidth + padX * 2;
   const height = painted.height + padY * 2;
   const facade = isPrimary ? palette.faceControl : palette.face;
-  const button = slab(registry, palette, width, height, facade, 0.26);
+  const button = slab(
+    registry,
+    palette,
+    width,
+    height,
+    facade,
+    0.26,
+    isPrimary ? palette.sides.gold : undefined
+  );
   button.group.add(
     ink(registry, painted.texture, painted.width, painted.height, button.face + 0.004)
   );

@@ -1,26 +1,34 @@
 :root {
-  /* ---- a pastel world: dusty rose, pale lilac, soft teal, ivory ---- */
-  --bg: #f2ebf0;
-  --surface: #f4e9df;
-  --surface-raised: #e8dcd2;
+  /* ---- Monument Valley's own site: paper white, charcoal ink, and skies
+     that run between saturated pairs (#e76399 → #627db3, #6785b9 → #66407c) ---- */
+  --font-display: var(--font-humanist), "Cabin", "Gill Sans", sans-serif;
+  --font-body: var(--font-humanist), "Cabin", "Gill Sans", sans-serif;
 
-  /* ---- ink: the same hues taken down far enough to carry text ---- */
-  --text: #55474f; /* ~7.3:1 on --surface */
-  --text-muted: #6e5e66; /* ~5.1:1 on --surface */
+  --bg: #fefefe;
+  --surface: #fff4dc;
+  --surface-raised: #efe3c0;
+
+  /* ---- ink: their charcoal, and the same at 70% for supporting copy ---- */
+  --text: #221f20; /* ~14.6:1 on --surface */
+  --text-muted: #5c5354; /* ~6.7:1 on --surface */
 
   /* ---- accent channels: the real ML/systems axis ---- */
-  --accent-ml: #9c5048; /* applied ML, ~4.8:1 on --surface */
-  --accent-systems: #336660; /* systems engineering, ~5.5:1 on --surface */
-  --accent-alert: #75571f; /* the one reserved fact, ~5.6:1 on --surface */
+  --accent-ml: #a63d36; /* applied ML, ~5.6:1 on --surface */
+  --accent-systems: #2c6a61; /* systems engineering, ~5.6:1 on --surface */
+  --accent-alert: #7a5710; /* the one reserved fact, ~5.9:1 on --surface */
 
   /* ---- the one saturated note, reserved for what can be operated ---- */
-  --accent-operable: #b33a62;
+  --accent-operable: #c2416f;
+
+  /* ---- skies, top to bottom, one pair per section ---- */
+  --sky-top: #c6e6e6;
+  --sky-bottom: #77b7c7;
 
   /* ---- solid tier: the mass of the building, never text ---- */
-  --rose: #e3b2ad;
-  --teal: #a8cdc8;
-  --lilac: #c6bada;
-  --sand: #e5cfa4;
+  --rose: #ec8a7f;
+  --teal: #9bceb8;
+  --lilac: #b7a6d9;
+  --sand: #f6c666;
 
   /* ---- flat block: used only by the fallback document, where there is no
      light to carve with. Zero blur, offsets bottom-right, so a surface reads
@@ -28,7 +36,7 @@
   --edge-sm: 3px;
   --edge-md: 5px;
   --edge-lg: 8px;
-  --block-edge: #c8bcbc;
+  --block-edge: #d9a441;
 
   --radius-xl: 28px;
   --radius-lg: 20px;
@@ -37,12 +45,14 @@
   --radius-pill: 999px;
 
   /* ---- type scale ---- */
-  --text-hero: clamp(2.7rem, 6.2vw, 5rem);
-  --text-section: clamp(1.55rem, 2.5vw, 2rem);
-  --text-title: 1.15rem;
+  --text-hero: clamp(2.4rem, 5.6vw, 4.4rem);
+  --text-section: clamp(1.4rem, 2.3vw, 1.85rem);
+  --text-title: 1.2rem;
   --text-body: 1.0625rem;
-  --text-meta: 0.82rem;
-  --text-label: 0.76rem;
+  --text-meta: 0.84rem;
+  --text-label: 0.8rem;
+  --tracking-title: 0.14em;
+  --tracking-label: 0.125em;
 
   --measure: 66ch;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -75,7 +85,7 @@ body {
      canvas has a frame, and what they keep if it never gets one. */
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-body), "Manrope", sans-serif;
+  font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -83,12 +93,19 @@ body {
 }
 
 h1,
-h2,
-h3 {
-  font-family: var(--font-display), "Unbounded", sans-serif;
+h2 {
+  font-family: var(--font-display);
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.1;
+  letter-spacing: var(--tracking-title);
+  text-transform: uppercase;
+  line-height: 1.12;
+  color: var(--text);
+}
+
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.2;
   color: var(--text);
 }
 
@@ -101,7 +118,7 @@ a {
 }
 
 ::selection {
-  background: var(--rose);
+  background: var(--sand);
   color: var(--text);
 }
 
@@ -121,7 +138,7 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c8bcbc;
+  background: var(--lilac);
   border: 3px solid var(--bg);
   border-radius: 999px;
 }
@@ -131,7 +148,7 @@ a {
 }
 
 * {
-  scrollbar-color: #c8bcbc var(--bg);
+  scrollbar-color: var(--lilac) var(--bg);
   scrollbar-width: thin;
 }
 

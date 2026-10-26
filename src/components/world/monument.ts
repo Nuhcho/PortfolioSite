@@ -1,63 +1,62 @@
 import * as THREE from "three";
 import type { Font } from "three/examples/jsm/loaders/FontLoader.js";
 import { affiliation, contact, experience, projects, skillGroups, type Entry } from "@/data/content";
-import { SCREEN_LIFT, SCREEN_UP } from "./layout";
+import { SCREEN_LIFT, SCREEN_RIGHT, SCREEN_UP, screenBox } from "./layout";
+import {
+  PATH,
+  block as stoneBlock,
+  clearOf,
+  HANDLE_RADIUS,
+  crankHandle,
+  destinationRing,
+  dress,
+  follyMassing,
+  follyTrim,
+  follyFront,
+  pathRun,
+  stairRun,
+  seeded,
+  traveler,
+  type FollyShape,
+  type KeepOut,
+  type Site,
+  type Stones,
+  type Watch,
+} from "./architecture";
 import { controlBlock, wallInk, type Control, type Hotspot } from "./parts";
-import { INK, ISO_DIR, Registry, TYPE, type Palette } from "./theme";
+import { INK, ISO_DIR, Registry, TRACK, TYPE, type Palette } from "./theme";
 import { measureInline, type Run } from "./text";
+import { buildHarbor } from "./harbor";
 
-/* The page is one monument, and scrolling walks you down it.
- *
- * An octagonal keep. Each storey carries one section of the portfolio,
- * inscribed on whichever of the shaft's eight faces is turned flat to the eye,
- * and each storey's face is a quarter further round than the one above — so
- * descending the monument and turning it are the same gesture.
- *
- * The copy is painted straight onto the stone. There is no panel, no bay and
- * no frame: a transparent plane of glyphs lying on the wall's own surface,
- * which is what lettering on a wall actually is. Earlier passes tried to build
- * "embedded" out of geometry — a recess, a floor, a jamb, a band — and each
- * sheet of pastel a fraction of a unit from the last added haze rather than
- * depth. Six of them stacked read as mush. The flattest answer is the literal
- * one.
- *
- * The camera is locked to true isometric, and two things follow.
- *
- * 1. A *vertical* wall whose outward normal points horizontally at the camera
- *    moves purely across the screen as you travel along it — not one pixel up
- *    or down. Baselines stay level with no shear and no pre-distortion, only a
- *    stretch up the wall's own height, which each face group carries as a
- *    scale. Everything inside is then laid out in plain screen units. A plane
- *    square to the view axis reads too, but it is tilted, so it can only ever
- *    stand off the tower's corner as a slab in front of it.
- *
- * 2. Translating along (1,1,1) changes depth without moving a pixel. Every
- *    storey carries a flight cut in two and pushed apart along that axis: at
- *    that storey's own quarter the halves land on the same pixels and the
- *    stair is whole, and at any other angle it is two pieces of stone that do
- *    not meet.
- */
+/* Five readable faces belong to one stepped monument. A central spine,
+   shared foundation and wrapping stairs make a continuous volume. Scrolling
+   turns around that volume; it never jumps between independent buildings. */
 
 export type StoreyContext = {
   elapsed: number;
   dt: number;
   reduce: boolean;
+  /** the path the traveler is stood at the end of, waiting to be sent
+      across, or null */
+  waiting: number | null;
 };
 
 export type Storey = {
-  /** matches the mirror's section id, so `#work` lands on the work storey */
+  /** matches the mirror's section id, so `#work` lands on the work folly */
   id: string;
-  /** where the camera looks when this storey is square to the eye */
+  /** where the camera looks when this folly is square to the eye, in the
+      root's own frame: turn it with the root to find it in the world */
   target: THREE.Vector3;
   fitWidth: number;
   fitHeight: number;
-  /** the group carrying this storey's inscription — everything that must be
-      off the wall before the keep turns */
+  /** the group carrying this folly's inscription — everything that must be
+      off the wall before the site turns */
   facet: THREE.Group;
-  /** fade this storey's inscription, 1 readable to 0 gone */
+  /** fade this folly's inscription, 1 readable to 0 gone */
   setInk: (opacity: number) => void;
-  /** fade this storey's flight, 1 standing to 0 gone */
-  setFlight: (opacity: number) => void;
+  /** Overview of the complete monument halfway through a turn, in the
+      root's own frame. Absent on the final reading face. */
+  onward?: { centre: THREE.Vector3; halfWidth: number; halfHeight: number };
 };
 
 export type View = { width: number; height: number; narrow: boolean };
@@ -70,26 +69,33 @@ export type BuildArgs = {
   hotspots: Hotspot[];
 };
 
-/** Radians of tower turned per storey descended. */
+/** Radians of site turned per folly travelled. */
 export const QUARTER = Math.PI / 2;
+/** How far through a turn the path onward joins. The turn holds there. */
+export const JOIN = 0.5;
+/** How the turn is spent: `swing` of it rotating to the join, `hold` of it
+    standing still there while the traveler crosses, `swing` rotating on, and
+    whatever is left settled square on the next folly before its ink comes
+    back. */
+export const TURN = { swing: 0.34, hold: 0.24 };
 
 /* An inscription lies flat on its wall, so the instant that wall swings off
- * square the type shears with it — the one thing on this keep that cannot be
+ * square the type shears with it — the one thing on the site that cannot be
  * allowed to stay on screen through a turn. Each facet therefore owns private
  * copies of every material it uses: the registry shares materials across the
- * whole tower by design, and fading a shared one would take four other
- * storeys down with it. Clones are tracked, so teardown still disposes them. */
+ * whole site by design, and fading a shared one would take four other
+ * follies down with it. Clones are tracked, so teardown still disposes them. */
 function fadeable(facet: THREE.Group, registry: Registry) {
   const clones = new Map<THREE.Material, THREE.Material>();
-  const owned: THREE.Material[] = [];
+  const owned: { material: THREE.Material; transparent: boolean }[] = [];
 
   const swap = (source: THREE.Material) => {
     let clone = clones.get(source);
     if (!clone) {
       clone = registry.track(source.clone());
-      clone.transparent = true;
+      clone.transparent = source.transparent;
       clones.set(source, clone);
-      owned.push(clone);
+      owned.push({ material: clone, transparent: source.transparent });
     }
     return clone;
   };
@@ -106,42 +112,40 @@ function fadeable(facet: THREE.Group, registry: Registry) {
     // costs a draw call and still writes nothing useful.
     facet.visible = opacity > 0.004;
     if (!facet.visible) return;
-    for (let i = 0; i < owned.length; i += 1) owned[i].opacity = opacity;
+    for (const { material, transparent } of owned) {
+      const fading = transparent || opacity < 0.999;
+      if (material.transparent !== fading) {
+        material.transparent = fading;
+        material.needsUpdate = true;
+      }
+      material.opacity = opacity;
+    }
   };
 }
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
-/* Eight sides, not four. A square prism turned to put one face flat to the eye
-   puts its neighbours exactly edge-on: they project to nothing and the tower
-   reads as a flat rectangle. An octagon's neighbours sit at 45° and recede, so
-   the shaft stays a solid you can see around. */
-const OCT = {
-  circum: (apothem: number) => apothem / Math.cos(Math.PI / 8),
-  side: (apothem: number) => 2 * (apothem / Math.cos(Math.PI / 8)) * Math.sin(Math.PI / 8),
-  /** bearing of face `k`'s outward normal, with face 0 flat to the eye */
-  bearing: (k: number) => (Math.PI * (k + 1)) / 4,
-};
-
-/* Five storeys over four quarters means the last comes back round to the
-   first one's face, so the index wraps. */
-const faceIndexOf = (storey: number) => (2 * storey) % 8;
-const bearingOf = (storey: number) => OCT.bearing(faceIndexOf(storey));
-const normalAt = (bearing: number) =>
-  new THREE.Vector3(Math.sin(bearing), 0, Math.cos(bearing));
-
-/* The shaft's flat-to-centre distance, sized from the column it has to carry.
-   An octagon's face is only 0.765 of that distance while its silhouette is
-   2.17 of it, so a face wide enough for a reading measure makes a tower about
-   three times as wide — which bleeds a little past the frame, and should: the
-   flanking faces still fill the picture either side of the reading one.
-
-   It does not batter. Every horizontal surface in an isometric picture sweeps
-   a vertical band more than half its own width tall, so a cornice or a setback
-   hangs straight across the wall above or below it whatever its depth. A
-   battered tower cannot have a readable wall on it. */
-const SHAFT_APOTHEM = 14.4;
-/** stone left either side of the reading column */
+/** A folly's front at full measure, and the stone left either side of the
+    reading column on it. */
+const FACE = 11.93;
 const MARGIN = 0.8;
+/** Screen units of wall over the first line and under the last. */
+const TOP_PAD = 2.2;
+const FOOT_PAD = 2.8;
+/** Screen units of wall under that again for the handle, on every folly
+    that has somewhere to turn on to. */
+const HANDLE_ROOM = 3.4;
+/** How far a path runs on across the roof it arrives at. */
+const LANDING = 3.2;
+/** The cap's overhang on the flanks, which a path meets rather than the wall. */
+const LIP = 0.3;
+
+/** The root's turn when folly `i` is square to the eye. */
+const readingTurn = (i: number) => -i * QUARTER;
+/** The root's turn where the path from folly `i` to the next one joins. */
+const joinTurn = (i: number) => -(i + JOIN) * QUARTER;
+/** At this turn every block on the site is square to the world axes, so an
+    axis-aligned box is an exact measure of any of them. */
+const SQUARE_TURN = -Math.PI / 4;
 
 /* Warm gold is reserved sitewide for exactly one fact: Lumen's real-time
    throughput. Every other metric takes its own channel colour. */
@@ -151,283 +155,46 @@ const toneFor = (entry: Entry): "ml" | "systems" | "alert" =>
 const inkFor = (tone: "ml" | "systems" | "alert") =>
   tone === "ml" ? INK.ml : tone === "alert" ? INK.beacon : INK.systems;
 
-/** One course of the keep per storey, each a different stone. */
-const COURSE = ["sea", "leaf", "coral", "sand", "sea"] as const;
-const storeyTone = (storey: number) => COURSE[storey % COURSE.length];
-
 /* Display type is set by what fits, not by what it was asked for. A name is
    one unbreakable word, so a column too narrow for it clips rather than wraps
-   — and the wall's width is fixed by the shaft. Measure the longest line and
-   take the size down until it fits. */
+   — and the wall's width is fixed. Measure the longest line as it will
+   actually be painted, capitals and tracking included, and take the size down
+   until it fits. */
 function fitDisplayTo(lines: string[], size: number, width: number) {
   const widest = Math.max(
-    ...lines.map((line) => measureInline({ text: line, face: "display", size, weight: 600 }))
+    ...lines.map((line) =>
+      measureInline({
+        text: line.toUpperCase(),
+        face: "display",
+        size,
+        weight: 600,
+        tracking: TRACK.title,
+      })
+    )
   );
   return widest <= width ? size : size * (width / widest);
 }
 
-/** The width of a face's reading column, in screen units. */
-function contentWidth(view: View) {
-  const face = OCT.side(SHAFT_APOTHEM) - MARGIN * 2;
-  return view.narrow ? Math.max(4.6, Math.min(view.width - 2.4, face)) : face;
-}
-
-/* A face's own frame.
- *
- * Local X runs across the wall, local Y up it, local Z straight out of it. One
- * unit of local X is already one unit of screen width; one unit of local Y is
- * 0.8165 of one, so the group carries that as a scale and every child is laid
- * out in plain screen units. */
-function faceFrame(storey: number, worldY: number) {
-  const bearing = bearingOf(storey);
-  const group = new THREE.Group();
-  group.quaternion.setFromAxisAngle(Y_AXIS, bearing);
-  group.scale.set(1, 1 / SCREEN_LIFT, 1);
-  group.position.copy(normalAt(bearing).multiplyScalar(SHAFT_APOTHEM)).setY(worldY);
-  return group;
-}
-
-/* The split that makes a cut stair whole again, in a facet's own coordinates.
- *
- * Translating along ISO_DIR is the one move that changes depth without moving
- * a pixel, so it is the only axis a flight can be cut along and still read as
- * one run. A facet is not in world axes, though: it stands at its own bearing
- * and carries a 1/SCREEN_LIFT scale on Y so its children can be laid out in
- * plain screen units. Both have to be undone for the offset to come out along
- * the view axis once the frame has had its way with it.
- *
- * The bearing term is constant across storeys and that is not a coincidence:
- * a storey's facet bearing is `OCT.bearing(0) + i·QUARTER` and the keep is
- * turned by `-i·QUARTER` when that storey is square, so the two cancel and
- * every reading facet stands in the same place. Derived here rather than
- * written down, so it survives a change to the camera.
- *
- * This was the bug that kept the paradox from ever reading: the flight was
- * pushed along the facet's local Z — the wall's own normal — which is the
- * horizontal projection of the view axis, not the view axis. The difference
- * is pure screen Y, so the two halves sat a visible step apart at every
- * angle, including the one where they were supposed to fuse, and the device
- * read as rubble rather than as a stair. */
-const VIEW_SPLIT = ISO_DIR.clone()
-  .applyAxisAngle(Y_AXIS, -OCT.bearing(0))
-  .multiply(new THREE.Vector3(1, SCREEN_LIFT, 1))
-  .normalize();
-
-/* A flight cut in two and pushed apart along the view axis. On screen the two
-   halves meet tread to tread and the stair is one unbroken run; in the world
-   they are metres apart, and the moment the tower turns off this storey's
-   quarter the join tears open. It comes toward the eye rather than away: the
-   shaft fills the space behind, and a flight pushed back into it is simply
-   swallowed.
-
-   Treads meet, they do not pile up. A block is cut to its own step and no
-   larger — the run across, the rise up — with STEP_BITE of slack so that no
-   antialiased seam opens along the join. Sized to anything else and each
-   tread is buried in the one below it: a run of 1.34 under a tread of 1.5,
-   carrying a block 2.4 times its own rise, is a heap of overlapping tiles
-   rather than a stair, which is what the flight had been.
-
-   That leaves the climb, where the arithmetic is not the obvious one. At
-   this bearing a block's depth sweeps 0.577 of a screen unit up the picture
-   for every unit of it — the usual isometric tax on a horizontal surface —
-   so a block only 1.6 screen units tall by its own rise stands 2.72 tall
-   once its depth is counted, against a pitch of 1.6. The treads overlap by a
-   full step vertically and nothing is cut to make them: the depth does it.
-
-   The block's own height carries a SCREEN_LIFT because the facet it hangs in
-   scales Y by 1/SCREEN_LIFT so its children can be laid out in plain screen
-   units. Text wants that. A solid does not — it came out 22% taller than it
-   was cut, which is why the treads read as slabs stood on end. Everything
-   else here stays in screen units, which is where the clearance from the
-   reading column is measured. */
-const STEP_BITE = 0.94;
-
-function brokenFlight(
-  registry: Registry,
-  materials: [THREE.Material, THREE.Material],
-  spec: { steps: number; run: number; rise: number; depth: number; split: number }
-) {
-  const group = new THREE.Group();
-  // Across the wall and up it come from the step itself; `depth` is the only
-  // dimension the flight is free to choose, being the one that stands out of
-  // the wall rather than along it.
-  const geometry = registry.geometry(
-    new THREE.BoxGeometry(
-      spec.run / STEP_BITE,
-      (spec.rise / STEP_BITE) * SCREEN_LIFT,
-      spec.depth
-    )
-  );
-  for (let i = 0; i < spec.steps; i += 1) {
-    const mesh = new THREE.Mesh(geometry, materials[i % 2]);
-    mesh.position.set(i * spec.run, i * spec.rise, 0);
-    // The far half is carried toward the eye along the view axis, so it lands
-    // back on the pixels the near half left off at.
-    if (i >= spec.steps / 2) mesh.position.addScaledVector(VIEW_SPLIT, spec.split);
-    group.add(mesh);
-  }
-  return group;
-}
-
-/* How the flight is cut. Seven treads of two and a half units, against the
-   eleven of one and a third it was cut to when it lived at reading distance:
-   the turn now happens pulled back, where the frame is some sixty screen
-   units tall and the old flight was gravel. */
-const FLIGHT = { steps: 7, run: 2.55, rise: 1.6, depth: 2.3, split: 13 };
-/** stone between the flight and anything it must not touch, in screen units */
-const FLIGHT_CLEARANCE = 1.4;
-
-/** How far the head of the run stands from the flight's own origin, in screen
-    units — the reach its placement has to be solved against so that no tread
-    can land on the reading column however the flight is cut. */
-function flightReach(spec: { steps: number; run: number; rise: number }) {
+/* A title in the house style: capitals, tracked wide, centred over its wall.
+   Every folly opens with one, the way every section of the games' own site
+   does. */
+function title(lines: string[], size: number, column: number): Run {
   return {
-    x: (spec.steps - 1) * spec.run + spec.run / (2 * STEP_BITE),
-    y: (spec.steps - 1) * spec.rise + spec.rise / (2 * STEP_BITE),
+    text: lines.join("\n"),
+    face: "display",
+    size: fitDisplayTo(lines, size, column * 0.97),
+    weight: 600,
+    tracking: TRACK.title,
+    upper: true,
+    align: "center",
+    lineHeight: 1.12,
   };
 }
 
-/* ---------------- the architecture ---------------- */
-
-/* Monument Valley's vocabulary, placed where it cannot cover a word.
- *
- * A tower standing on one of the shaft's four axis bearings spans screen x
- * from 5.94 units out to 14.42, and the reading wall spans only ±5.96 — so
- * four of them frame the copy edge to edge and never cross it at any height,
- * whatever they are built of. Two of the four are also far behind the wall in
- * depth. That geometry is the whole licence for building anything here at all;
- * every earlier attempt to put architecture near the copy ended up on top of
- * it.
- *
- * They splay as they descend rather than batter in place: a wider tower has to
- * stand further out to keep its inner edge off the wall, and `2w + 8.6` is
- * exactly that distance. */
-const CORNER_BEARINGS = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-const cornerRadius = (half: number) => 2 * half + 8.6;
-
-function box(
-  parent: THREE.Object3D,
-  registry: Registry,
-  material: THREE.Material,
-  size: [number, number, number],
-  at: [number, number, number]
-) {
-  const mesh = new THREE.Mesh(registry.geometry(new THREE.BoxGeometry(...size)), material);
-  mesh.position.set(...at);
-  parent.add(mesh);
-  return mesh;
-}
-
-/* A corner tower, tiled in short courses rather than run as one prism.
- *
- * The scale this has to work at is the viewport's, not the storey's. A storey
- * is twenty-five world units of content and the frame holds about fifteen
- * screen units, so a tower built as one box per storey is never seen whole —
- * it reads as a flat band of colour, which is exactly what the first attempt
- * did. Tiled at eight units a course, two and a half courses stand in frame at
- * once, with their cornices, their openings and their shadow lines, and the
- * thing reads as masonry.
- */
-const COURSE_HEIGHT = 8;
-
-function cornerTower(
-  registry: Registry,
-  palette: Palette,
-  spec: {
-    bearing: number;
-    top: number;
-    bottom: number;
-    half: number;
-    stone: THREE.Material;
-    deep: THREE.Material;
-    crown: boolean;
-  }
-) {
-  const group = new THREE.Group();
-  const { half, top, bottom } = spec;
-
-  group.quaternion.setFromAxisAngle(Y_AXIS, spec.bearing);
-  group.position.copy(normalAt(spec.bearing).multiplyScalar(cornerRadius(half)));
-
-  const courses = Math.max(1, Math.round((top - bottom) / COURSE_HEIGHT));
-  const run = (top - bottom) / courses;
-
-  for (let c = 0; c < courses; c += 1) {
-    const head = top - c * run;
-    const foot = head - run;
-
-    box(group, registry, spec.stone, [half * 2, run, half * 2], [0, (head + foot) / 2, 0]);
-    // The cornice that lands on every course, and the shadow line under it.
-    box(group, registry, spec.deep, [half * 2 + 0.55, 0.9, half * 2 + 0.55], [0, foot + 0.45, 0]);
-    box(group, registry, palette.shelfDeep, [half * 2 + 0.2, 0.3, half * 2 + 0.2], [0, foot + 1.1, 0]);
-
-    /* An opening in every other course, cut on the two sides that face the
-       eye. Recessed, so it is a hole in the stone rather than a sticker. */
-    if (c % 2 === 1) {
-      const w = half * 0.5;
-      const h = run * 0.34;
-      const y = (head + foot) / 2 + run * 0.08;
-      box(group, registry, palette.deep, [w, h, 0.5], [0, y, half - 0.24]);
-      box(group, registry, palette.deep, [0.5, h, w], [half - 0.24, y, 0]);
-    }
-  }
-
-  if (spec.crown) {
-    // Merlons, in the one place on the monument where a silhouette can bite
-    // into the sky without crossing anything.
-    const merlon = half * 0.44;
-    [-1, 1].forEach((sx) =>
-      [-1, 1].forEach((sz) =>
-        box(
-          group,
-          registry,
-          spec.deep,
-          [merlon, 2.1, merlon],
-          [sx * (half - merlon / 2), top + 1.05, sz * (half - merlon / 2)]
-        )
-      )
-    );
-    box(group, registry, palette.shelf, [half * 1.3, 1.1, half * 1.3], [0, top + 0.55, 0]);
-    box(group, registry, palette.beacon, [merlon, merlon, merlon], [0, top + 2.6, 0]);
-  }
-
-  return group;
-}
-
-/** A beam running from a corner tower in to the shaft. */
-function buttress(
-  registry: Registry,
-  material: THREE.Material,
-  spec: { bearing: number; y: number; half: number }
-) {
-  const group = new THREE.Group();
-  group.quaternion.setFromAxisAngle(Y_AXIS, spec.bearing);
-  const reach = cornerRadius(spec.half) - spec.half;
-  box(group, registry, material, [1.5, 1.1, reach], [0, spec.y, reach / 2]);
-  box(group, registry, material, [2.3, 1.6, 1.4], [0, spec.y - 1.0, reach - 0.7]);
-  return group;
-}
-
-/** A portal cut between two posts: the simplest real architecture there is. */
-function archway(
-  registry: Registry,
-  palette: Palette,
-  spec: { bearing: number; y: number; span: number; height: number; posts: [THREE.Material, THREE.Material] }
-) {
-  const group = new THREE.Group();
-  group.quaternion.setFromAxisAngle(Y_AXIS, spec.bearing);
-  group.position.copy(normalAt(spec.bearing).multiplyScalar(spec.span * 1.45));
-  const half = spec.span / 2;
-  box(group, registry, spec.posts[0], [0.9, spec.height, 0.9], [-half, spec.y + spec.height / 2, 0]);
-  box(group, registry, spec.posts[1], [0.9, spec.height, 0.9], [half, spec.y + spec.height / 2, 0]);
-  box(
-    group,
-    registry,
-    palette.shelfDeep,
-    [spec.span + 1.9, 0.9, 1.3],
-    [0, spec.y + spec.height + 0.45, 0]
-  );
-  return group;
+/** The width of a front's reading column, in screen units. */
+function contentWidth(view: View) {
+  const face = FACE - MARGIN * 2;
+  return view.narrow ? Math.max(4.6, Math.min(view.width - 2.4, face)) : face;
 }
 
 type Composed = { height: number };
@@ -437,13 +204,29 @@ type FacetSpec = {
   compose: (facet: THREE.Group, column: number, args: BuildArgs) => Composed;
 };
 
-type Built = {
-  storey: Storey;
-  worldY: number;
-  contentHeight: number;
+type Folly = {
+  group: THREE.Group;
+  /** body, cap and plinth: what the layout measures and keeps apart */
+  massing: THREE.Group;
+  shape: FollyShape;
+  /** folly-local z where the path from the folly above lands, on the -x flank */
+  arriveZ?: number;
+  arriveSide?: -1 | 1;
+  /** the flank the path onward leaves from, and the folly-local z it leaves at */
+  leave?: { side: -1 | 1; z: number };
 };
 
-/* ---------------- the monument ---------------- */
+type Bridge = {
+  group: THREE.Group;
+  /** the two runs that leave the roof and stop in the air */
+  legs: THREE.Group;
+  /** the stretch across the next roof that the legs appear to run on into */
+  landing: THREE.Group;
+  /** the traveler's way across, in the root's own frame */
+  route: { from: THREE.Vector3; corner: THREE.Vector3; end: THREE.Vector3; landing: THREE.Vector3; landed: THREE.Vector3 };
+};
+
+/* ---------------- the site ---------------- */
 
 export function buildMonument(args: Omit<BuildArgs, "hotspots">) {
   const hotspots: Hotspot[] = [];
@@ -452,6 +235,8 @@ export function buildMonument(args: Omit<BuildArgs, "hotspots">) {
 
   const root = new THREE.Group();
   const column = contentWidth(view);
+  const width = column + MARGIN * 2;
+  const half = width / 2;
 
   const specs: FacetSpec[] = [
     { id: "top", compose: composeHero },
@@ -460,250 +245,385 @@ export function buildMonument(args: Omit<BuildArgs, "hotspots">) {
     { id: "skills", compose: composeSkills },
     { id: "contact", compose: composeContact },
   ];
+  const last = specs.length - 1;
 
-  /* Screen units of plain shaft between one reading and the next — the run of
-     stone that tells you it is a tower you are going down. */
-  const STOREY_GAP = 8;
-  const built: Built[] = [];
-  let screenDrop = 0;
-
-  specs.forEach((spec, i) => {
-    const probe = new THREE.Group();
-    const composed = spec.compose(probe, column, full);
-
-    if (i > 0) screenDrop += STOREY_GAP + composed.height / 2;
-    const worldY = -screenDrop / SCREEN_LIFT;
-
-    const facet = faceFrame(i, worldY);
-    while (probe.children.length) facet.add(probe.children[0]);
-    root.add(facet);
-
-    /* What the camera holds: the wall's own centre, half the content's height
-       below its head. The wall stands clear of the axis, and that does move it
-       on screen — out of a wall is 0.577 down the picture — so unlike a
-       view-axis offset it has to be counted. */
-    const target = normalAt(bearingOf(0))
-      .multiplyScalar(SHAFT_APOTHEM)
-      .setY(worldY)
-      .addScaledVector(SCREEN_UP, -composed.height / 2);
-
-    /* This storey's flight, in its own frame at this storey's own bearing, so
-       the split lands along the view axis at this storey's quarter and
-       nowhere else.
-
-       Where it may stand is not a matter of taste. The one rule the rest of
-       this file keeps — "placed where it cannot cover a word" — is the rule
-       the flight was breaking: cut for a run of 1.34 over eleven steps, it
-       swept 13.4 screen units from outboard-left clean across the reading
-       column and finished at +3.8, dead centre over the copy, standing 0.6
-       proud of the wall with its far half carried further toward the eye
-       still. On the contact storey that put four treads over the email, the
-       LinkedIn and the GitHub buttons: controls you could still press and no
-       longer see.
-
-       So it is solved, and the axis it is solved on is the vertical one.
-       Under the last line of an inscription is a band of plain shaft that
-       exists for nothing else, and a stair crossing a blank wall is what a
-       stair is for. The clearance below the last line is the only number
-       here; the rest comes off the flight's own measured reach, so a longer
-       storey, a wider tread or another step cannot walk it back up onto the
-       words.
-
-       Crossing the face rather than standing off it is also what stops the
-       device reading as debris. Cut to climb in from outboard, the foot of
-       the run began some twenty-four units out, which at the wide framing is
-       open sky — and a short chain of blocks adrift in open sky is rubble
-       whatever the geometry behind it is doing. Both ends overhang the keep's
-       silhouette by a tread and the middle lies across its wall, so the
-       quarter-turn tears the flight against stone, which is the only
-       background that reads the break as a break. */
-    const reach = flightReach(FLIGHT);
-    const flightFrame = faceFrame(i, worldY);
-    const flight = brokenFlight(registry, [palette.ml, palette.systems], FLIGHT);
-    flightFrame.add(flight);
-    flight.position.set(
-      // Centred on the face, so both ends overhang its silhouette evenly.
-      -reach.x / 2,
-      // Head of the run a clearance below the storey's last line.
-      -composed.height - FLIGHT_CLEARANCE - reach.y,
-      0.6
-    );
-    root.add(flightFrame);
-
-    built.push({
-      worldY,
-      contentHeight: composed.height,
-      storey: {
-        id: spec.id,
-        target,
-        fitWidth: column + (view.narrow ? 1.6 : 2.6),
-        fitHeight: composed.height + 1.4,
-        facet,
-        setInk: fadeable(facet, registry),
-        setFlight: fadeable(flightFrame, registry),
-      },
-    });
-
-    screenDrop += composed.height / 2;
+  /* Every inscription is composed first, against nothing, so its height is
+     known before anything is built round it. The facet carries the wall's
+     vertical stretch, so its children are laid out in plain screen units. */
+  const facets = specs.map((spec) => {
+    const facet = new THREE.Group();
+    facet.scale.set(1, 1 / SCREEN_LIFT, 1);
+    return { facet, height: spec.compose(facet, column, full).height };
   });
 
-  /* ---------------- the shaft ---------------- */
+  const base: Site = { registry, palette, rand: seeded(1) };
+  /** the colours a roof may take: one of the channels, lavender, or gold */
+  const accents = [palette.ml, palette.systems, palette.connector, palette.sand];
+  const stonesFor = (i: number): Stones => {
+    const [stone, deep] = palette.sides.sea;
+    const crowns = [palette.sand, palette.ml, palette.systems, palette.connector, palette.sand];
+    return { stone, deep, accent: crowns[i % crowns.length], face: palette.faceSystems };
+  };
+  /** Paths are cream on top with sand sides, whichever follies they join. */
+  const paving: Stones = { stone: palette.shelfDeep, deep: palette.shelfShadow, accent: palette.sand };
 
-  /* One storey's stone ends exactly where the next one's begins, computed from
-     the storeys' real positions rather than from their own heights: a storey is
-     placed by its content, so sizing its prism from that content leaves gaps
-     wherever two neighbours differ in length — and a gap exposes the underside
-     of the prism above, which sweeps eight screen units down across the wall
-     below it. */
-  const spans = built.map((entry, i) => ({
-    top: entry.worldY + 2.2 / SCREEN_LIFT,
-    bottom:
-      i + 1 < built.length
-        ? built[i + 1].worldY + 2.2 / SCREEN_LIFT
-        : entry.worldY - (entry.contentHeight + STOREY_GAP) / SCREEN_LIFT,
+  // One authored footprint. Every chapter is a face of the same stepped keep.
+  const radius = half + 3.6;
+  const coreHalf = width * 0.31;
+  const readingHeight = (i: number) =>
+    (TOP_PAD + facets[i].height + FOOT_PAD + (i < last ? HANDLE_ROOM : 0)) / SCREEN_LIFT;
+  const roofs = [0, -8, -17, -26, Math.min(-36, -readingHeight(0) - 4)];
+  const radii = [radius, radius, radius - 0.8, radius + 0.6, radius + 3.6];
+  const floor = Math.min(...roofs.map((roof, i) => roof - readingHeight(i))) - 2;
+
+  /** Build folly `i`'s body with its roof at `roof`, turned so its front is
+      square to the eye at its own reading angle, and hang its inscription. */
+  const raise = (i: number, roof: number, depth: number): Folly => {
+    // The entrance terrace carries the upper front wing. Their side walls
+    // meet at one level instead of occupying the same plane below it.
+    const bottom = i === 0 ? roofs[4] : floor;
+    const shape: FollyShape = {
+      width,
+      depth,
+      roof,
+      bottom,
+      sharedBase: true,
+      archHeight: Math.max(0, Math.min(10, roof - readingHeight(i) - bottom - 2)) > 3.5
+        ? Math.min(10, roof - readingHeight(i) - bottom - 2) : 0,
+    };
+    const group = new THREE.Group();
+    group.rotation.y = Math.PI / 4 + i * QUARTER;
+    const massing = follyMassing(base, stonesFor(i), shape);
+    group.add(massing);
+    hang(group, i, roof);
+    root.add(group);
+    return { group, massing, shape };
+  };
+  const hang = (group: THREE.Group, i: number, roof: number) => {
+    const { facet } = facets[i];
+    facet.position.set(0, roof - TOP_PAD / SCREEN_LIFT, 0);
+    group.add(facet);
+  };
+
+  /** A point in a folly's own frame, in the root's frame. */
+  const onFolly = (folly: Folly, x: number, y: number, z: number) => {
+    root.rotation.y = 0;
+    root.updateMatrixWorld(true);
+    return folly.group.localToWorld(new THREE.Vector3(x, y, z));
+  };
+
+  /* One continuous stepped volume, with each wing overlapping the core.
+     A common foot replaces the separate islands and hanging foundations. */
+  const follies: Folly[] = roofs.map((roof, i) => {
+    const folly = raise(i, roof, radii[i] - coreHalf + 0.25);
+    const outward = new THREE.Vector3(0, 0, radii[i]).applyAxisAngle(Y_AXIS, folly.group.rotation.y);
+    folly.group.position.copy(outward);
+    return folly;
+  });
+  const structure = new THREE.Group();
+  structure.name = "shared-monument-spine";
+  structure.rotation.y = Math.PI / 4;
+  root.add(structure);
+  const coreTop = 4;
+  structure.add(stoneBlock(registry, palette.systems,
+    [coreHalf * 2, coreTop - floor, coreHalf * 2], [0, (coreTop + floor) / 2, 0]));
+  structure.add(stoneBlock(registry, palette.shelf,
+    [coreHalf * 2 + 0.6, 0.5, coreHalf * 2 + 0.6], [0, coreTop + 0.25, 0]));
+  const crown = registry.model("pavilion", {
+    stone: palette.sand, trim: palette.shelf, shadow: palette.sandDeep,
+    accent: palette.ml, recess: palette.deep,
+  });
+  if (crown) {
+    crown.scale.setScalar(1.7);
+    crown.position.y = coreTop + 0.5;
+    structure.add(crown);
+  }
+
+  // A single terraced limestone foundation, with an offset entrance apron.
+  const baseHalf = radius + 2.3;
+  structure.add(stoneBlock(registry, palette.rockDeep,
+    [baseHalf * 2, 2.4, baseHalf * 2], [0, floor - 1.2, 0]));
+  structure.add(stoneBlock(registry, palette.shelf,
+    [baseHalf * 2 + 0.8, 0.5, baseHalf * 2 + 0.8], [0, floor - 0.25, 0]));
+  structure.add(stoneBlock(registry, palette.rock,
+    [baseHalf * 2 - 1.5, 1.4, baseHalf * 2 - 1.5], [0, floor - 3.1, 0]));
+  const apronStart = baseHalf + 0.4;
+  const apronEnd = radii[4] + 2.25;
+  const apronLength = apronEnd - apronStart;
+  structure.add(stoneBlock(registry, palette.shelfDeep,
+    [width + 1.6, 2.4, apronLength], [0, floor - 1.2, (apronStart + apronEnd) / 2]));
+  structure.add(stoneBlock(registry, palette.shelf,
+    [width + 2.1, 0.5, apronLength], [0, floor - 0.25, (apronStart + apronEnd) / 2]));
+
+  const bridges: Bridge[] = [];
+  for (let i = 0; i < last; i += 1) {
+    const from = follies[i];
+    const next = follies[i + 1];
+    const top = from.shape.roof + PATH.rise;
+    const lower = next.shape.roof + PATH.rise;
+    const leaveZ = -2;
+    const nextZ = -2;
+    from.leave = { side: 1, z: leaveZ };
+    next.arriveZ = nextZ;
+    next.arriveSide = 1;
+    const start = onFolly(from, half - 1.3, top, leaveZ);
+    const corner = onFolly(from, half + 0.5, top, leaveZ);
+    const exterior = Math.max(radii[i], radii[i + 1]) + 2.2;
+    const end = onFolly(from, exterior, top, leaveZ);
+    const landing = onFolly(next, half - 1.3, lower, exterior - radii[i + 1]);
+    const landed = onFolly(next, half - 1.3, lower, nextZ);
+    const group = new THREE.Group();
+    group.name = `terrace-stair-${i}`;
+    const legs = new THREE.Group();
+    const onto = new THREE.Group();
+    group.add(legs, onto);
+    pathRun(legs, base, paving, start, end);
+    stairRun(group, base, paving, end, landing);
+    pathRun(onto, base, paving, landing, landed);
+    root.add(group);
+    bridges.push({ group, legs, landing: onto, route: { from: start, corner, end, landing, landed } });
+  }
+
+  /* ---- dressing ----
+
+     Only once every folly stands is anything grown on them, and each roof
+     keeps open the strips its paths and its traveler need. */
+  const pieces: THREE.Object3D[] = [];
+  const owner = new Map<THREE.Object3D, number>();
+
+
+  const starts: [number, number][] = [];
+  const architecturalFronts: THREE.Group[] = [];
+
+  follies.forEach((folly, i) => {
+    folly.group.add(follyTrim({ registry, palette, rand: seeded(0x7472 + i * 6007) }, stonesFor(i), folly.shape));
+    const front = follyFront({ registry, palette, rand: seeded(0x6672 + i * 6007) }, stonesFor(i), folly.shape);
+    folly.group.add(front);
+    architecturalFronts.push(front);
+    const keepOut: KeepOut[] = [];
+    const start: [number, number] =
+      folly.arriveZ !== undefined
+        ? [(folly.arriveSide ?? -1) * (half - LANDING), folly.arriveZ]
+        : [-(folly.leave?.side ?? 1) * (half - 2.2), folly.leave?.z ?? -folly.shape.depth / 2];
+    starts.push(start);
+    if (folly.arriveZ !== undefined) {
+      const side = folly.arriveSide ?? -1;
+      keepOut.push({ from: [side * (half + LIP), folly.arriveZ], to: [side * (half - LANDING), folly.arriveZ], radius: 1.3 });
+    }
+    if (folly.leave) {
+      const { side, z } = folly.leave;
+      keepOut.push({ from: [side * (half - 1.4), z], to: [side * (half + LIP), z], radius: 1.3 });
+      keepOut.push({ from: start, to: [side * (half - 1.4), z], radius: 1 });
+    }
+    const grown = dress(
+      { registry, palette, rand: seeded(0x6472 + i * 104729) },
+      stonesFor(i),
+      accents,
+      {
+        ...folly.shape,
+        tallSide: 0,
+        keepOut,
+        under: "shared",
+      }
+    );
+    grown.forEach((piece) => {
+      folly.group.add(piece);
+      pieces.push(piece);
+      owner.set(piece, i);
+    });
+  });
+
+  /* Grown pieces may not stand in a path or in another folly. */
+  root.rotation.y = SQUARE_TURN;
+  root.updateMatrixWorld(true);
+  const tiles = bridges.flatMap((bridge) =>
+    [...bridge.legs.children, ...bridge.landing.children].map((tile) => new THREE.Box3().setFromObject(tile).expandByScalar(0.15))
+  );
+
+  const bodies = follies.map((folly) => new THREE.Box3().setFromObject(folly.massing).expandByScalar(0.5));
+  pieces.forEach((piece) => {
+    const area = new THREE.Box3().setFromObject(piece);
+    if (tiles.some((tile) => tile.intersectsBox(area)) || bodies.some((body, k) => k !== owner.get(piece) && body.intersectsBox(area))) {
+      piece.removeFromParent();
+    }
+  });
+
+  const watches: Watch[] = [
+    ...facets.map(({ facet }, i) => ({ turn: readingTurn(i), walls: [facet], paths: [] })),
+    ...bridges.map((bridge, i) => ({ turn: joinTurn(i), walls: [], paths: [bridge.group] })),
+  ];
+  clearOf(root, pieces, watches);
+
+  /* ---- the handles ----
+
+     One on the front of every folly with a path onward, under its
+     inscription: the crank that turns the site. It hangs in the wall's
+     vertical stretch like the inscription does, so it is round on screen. */
+  const handles = follies.slice(0, last).map((folly, i) => {
+    const handle = crankHandle(base, stonesFor(i), accents[(i + 2) % accents.length]);
+    const mount = new THREE.Group();
+    mount.scale.set(1, 1 / SCREEN_LIFT, 1);
+    const below = TOP_PAD + facets[i].height + (FOOT_PAD + HANDLE_ROOM) / 2 - 0.2;
+    mount.position.set(0, folly.shape.roof - below / SCREEN_LIFT, 0.02);
+    mount.add(handle.group);
+    folly.group.add(mount);
+    /* The first one says what it is for, once. Painted on the inscription,
+       so it leaves the wall with the words. */
+    if (i === 0) {
+      const hint = wallInk(registry, {
+        width: column,
+        runs: [{ text: "Turn the handle to travel", size: TYPE.meta, color: INK.muted, align: "center", nowrap: true }],
+      });
+      hint.mesh.position.set(0, -(below - TOP_PAD + HANDLE_RADIUS + 0.55), 0.02);
+      facets[0].facet.add(hint.mesh);
+    }
+    return handle;
+  });
+
+  /* Where a tap will send the traveler, ringed on the far roof while it
+     waits at the end of a joined path. */
+  const rings = bridges.map((bridge) => {
+    const ring = destinationRing(base);
+    ring.ring.position.copy(bridge.route.landed).add(new THREE.Vector3(0, 0.06, 0));
+    ring.ring.visible = false;
+    root.add(ring.ring);
+    return ring;
+  });
+
+  /* ---- the traveler ----
+
+     Stands on the roof of whichever folly is being read. Through a turn it
+     walks to where the path leaves, waits for the path to join, crosses —
+     stepping off the end of the run and onto the far roof, which at that
+     angle is the same pixel — and walks on to stand on the next folly. */
+  const walker = traveler(base);
+  root.add(walker.group);
+  const standing = follies.map((folly, i) =>
+    i === 0 ? onFolly(folly, starts[0][0], folly.shape.roof + PATH.rise, starts[0][1]) : bridges[i - 1].route.landed
+  );
+
+  const spot = new THREE.Vector3();
+  const heading = new THREE.Vector3();
+  /** Walk `u` of the way along a polyline, leaving the place in `spot` and
+      the direction of travel in `heading`. */
+  const along = (points: THREE.Vector3[], u: number) => {
+    const lengths = points.slice(1).map((p, k) => p.distanceTo(points[k]));
+    let left = lengths.reduce((sum, l) => sum + l, 0) * THREE.MathUtils.clamp(u, 0, 1);
+    for (let k = 0; k < lengths.length; k += 1) {
+      if (left <= lengths[k] || k === lengths.length - 1) {
+        const t = lengths[k] > 0 ? Math.min(1, left / lengths[k]) : 1;
+        spot.lerpVectors(points[k], points[k + 1], t);
+        heading.subVectors(points[k + 1], points[k]);
+        return;
+      }
+      left -= lengths[k];
+    }
+  };
+
+  let moving = false;
+  const walk = (i: number, t: number) => {
+    moving = false;
+    if (i >= bridges.length) {
+      const final = bridges[bridges.length - 1].route;
+      spot.copy(final.landed);
+      heading.subVectors(final.landed, final.landing);
+    } else {
+      const { route } = bridges[i];
+      const crossing = route.from.distanceTo(route.corner) + route.corner.distanceTo(route.end) + route.end.distanceTo(route.landing);
+      const stepping = route.landing.distanceTo(route.landed);
+      const set = TURN.swing - 0.02;
+      const off = TURN.swing + 0.02;
+      const over = TURN.swing + TURN.hold - 0.02;
+      if (t < set) {
+        along([standing[i], route.from], (t - 0.04) / (set - 0.04));
+        moving = t > 0.04;
+      } else if (t < off) {
+        along([route.from, route.corner], 0);
+      } else if (t < over) {
+        const s = ((t - off) / (over - off)) * (crossing + stepping);
+        if (s < crossing) along([route.from, route.corner, route.end, route.landing], s / crossing);
+        else along([route.landing, route.landed], (s - crossing) / stepping);
+        moving = true;
+      } else {
+        along([route.landing, route.landed], 1);
+      }
+    }
+    walker.group.position.copy(spot);
+    if (heading.lengthSq() > 1e-6) walker.group.rotation.y = Math.atan2(heading.x, heading.z);
+  };
+  walk(0, 0);
+
+  /* ---- what the camera needs ---- */
+
+  root.rotation.y = 0;
+  root.updateMatrixWorld(true);
+  /** how much of the wall under the inscription the reader must see: the
+      handle and a margin under it, where there is one */
+  const room = (i: number) => (i < last ? FOOT_PAD + HANDLE_ROOM - 1.2 : 0);
+  const inks = facets.map(({ facet }) => fadeable(facet, registry));
+  const storeys: Storey[] = follies.map((folly, i) => ({
+    id: specs[i].id,
+    target: folly.group.localToWorld(
+      new THREE.Vector3(0, folly.shape.roof - (TOP_PAD + (facets[i].height + room(i)) / 2) / SCREEN_LIFT, 0)
+    ),
+    fitWidth: column + (view.narrow ? 1.6 : 2.6),
+    fitHeight: facets[i].height + room(i) + 1.4,
+    facet: facets[i].facet,
+    setInk: (opacity: number) => {
+      inks[i](opacity);
+      architecturalFronts[i].visible = opacity < 0.01;
+    },
   }));
 
-  built.forEach((entry, i) => {
-    const { top, bottom } = spans[i];
-    const height = top - bottom;
-    const midY = (top + bottom) / 2;
-    const [stone, deep] = palette.sides[storeyTone(i)];
+  const harbor = buildHarbor(registry, floor, radii[4]);
+  root.add(harbor.group);
+  harbor.update(0, true);
 
-    /* The shaft is cut from the one pale stone every inscription is measured
-       against, so the reading face needs nothing laid over it. The other seven
-       faces are faced in this storey's own colour, standing a little proud —
-       which leaves the reading face the shallowest recess in the tower without
-       a single extra sheet in front of the words. */
-    const core = new THREE.Mesh(
-      registry.geometry(
-        new THREE.CylinderGeometry(
-          OCT.circum(SHAFT_APOTHEM),
-          OCT.circum(SHAFT_APOTHEM),
-          height,
-          8
-        )
-      ),
-      palette.shelf
-    );
-    core.rotation.y = Math.PI / 8;
-    core.position.y = midY;
-    root.add(core);
-
-    const faceWidth = OCT.side(SHAFT_APOTHEM) + 0.2;
-    for (let k = 0; k < 8; k += 1) {
-      if (k === faceIndexOf(i)) continue;
-      const bearing = OCT.bearing(k);
-      const panel = new THREE.Mesh(
-        registry.geometry(new THREE.BoxGeometry(faceWidth, height, 0.7)),
-        k % 2 === 0 ? deep : stone
-      );
-      panel.quaternion.setFromAxisAngle(Y_AXIS, bearing);
-      panel.position.copy(normalAt(bearing).multiplyScalar(SHAFT_APOTHEM + 0.2));
-      panel.position.y = midY;
-      root.add(panel);
-    }
-
-    /* The joint between one storey's stone and the next, cut as a groove. A
-       recessed ring can never overhang the wall below it; a proud one always
-       does. */
-    const joint = new THREE.Mesh(
-      registry.geometry(
-        new THREE.CylinderGeometry(OCT.circum(SHAFT_APOTHEM - 0.5), OCT.circum(SHAFT_APOTHEM - 0.5), 0.9, 8)
-      ),
-      deep
-    );
-    joint.rotation.y = Math.PI / 8;
-    joint.position.y = bottom + 0.45;
-    root.add(joint);
-
-    /* The four corner towers, splaying a little further out at every storey
-       they fall, each tied back to the keep by a buttress at the storey line. */
-    const half = 2.9 + i * 0.16;
-    CORNER_BEARINGS.forEach((bearing, corner) => {
-      root.add(
-        cornerTower(registry, palette, {
-          bearing,
-          top,
-          bottom,
-          half,
-          stone: corner % 2 === 0 ? stone : deep,
-          deep: palette.shelfDeep,
-          crown: i === 0,
-        })
-      );
-      // A buttress at every course, not only at the storey line, so the keep
-      // and its towers read as one piece of building at any height.
-      const courses = Math.max(1, Math.round((top - bottom) / COURSE_HEIGHT));
-      for (let c = 1; c <= courses; c += 1) {
-        root.add(
-          buttress(registry, corner % 2 === 0 ? deep : stone, {
-            bearing,
-            y: top - (c * (top - bottom)) / courses + 1.5,
-            half,
-          })
-        );
-      }
-      if (i === built.length - 1) {
-        root.add(
-          archway(registry, palette, {
-            bearing,
-            y: bottom - 3.4,
-            span: half * 1.5,
-            height: 5.4,
-            posts: [stone, deep],
-          })
-        );
-      }
-    });
+  /* Each turn reveals the complete monument and its shared foundation.
+     Measure at the held angle, leaving the traveler out of the bounds. */
+  walker.group.visible = false;
+  bridges.forEach((_, i) => {
+    root.rotation.y = joinTurn(i);
+    root.updateMatrixWorld(true);
+    const boxes = [root].map(screenBox);
+    const minX = Math.min(...boxes.map((b) => b.minX));
+    const maxX = Math.max(...boxes.map((b) => b.maxX));
+    const minY = Math.min(...boxes.map((b) => b.minY));
+    const maxY = Math.max(...boxes.map((b) => b.maxY));
+    const depth =
+      (follies[i].group.getWorldPosition(new THREE.Vector3()).dot(ISO_DIR) +
+        follies[i + 1].group.getWorldPosition(new THREE.Vector3()).dot(ISO_DIR)) /
+      2;
+    const centre = SCREEN_RIGHT.clone()
+      .multiplyScalar((minX + maxX) / 2)
+      .addScaledVector(SCREEN_UP, (minY + maxY) / 2)
+      .addScaledVector(ISO_DIR, depth)
+      .applyAxisAngle(Y_AXIS, -joinTurn(i));
+    storeys[i].onward = { centre, halfWidth: (maxX - minX) / 2, halfHeight: (maxY - minY) / 2 };
   });
+  walker.group.visible = true;
 
-  /* The crown above everything, and the foot it all stands on — both flush
-     with the shaft, because a wider one would hang across the wall below. */
-  const crown = new THREE.Group();
-  crown.position.y = built[0].worldY + 2.2 / SCREEN_LIFT;
-  root.add(crown);
-  const lantern = new THREE.Mesh(
-    registry.geometry(
-      new THREE.CylinderGeometry(
-        OCT.circum(SHAFT_APOTHEM * 0.46),
-        OCT.circum(SHAFT_APOTHEM),
-        4.2,
-        8
-      )
-    ),
-    palette.shelfDeep
-  );
-  lantern.rotation.y = Math.PI / 8;
-  lantern.position.y = 2.1;
-  crown.add(lantern);
-  const beacon = new THREE.Mesh(
-    registry.geometry(new THREE.IcosahedronGeometry(1.0, 0)),
-    palette.beacon
-  );
-  beacon.position.set(0, 5.1, 0);
-  crown.add(beacon);
-
-  const last = built[built.length - 1];
-  const foot = new THREE.Mesh(
-    registry.geometry(
-      new THREE.CylinderGeometry(OCT.circum(SHAFT_APOTHEM), OCT.circum(SHAFT_APOTHEM), 6, 8)
-    ),
-    palette.deep
-  );
-  foot.rotation.y = Math.PI / 8;
-  foot.position.y =
-    last.worldY - (last.contentHeight + STOREY_GAP) / SCREEN_LIFT - 3;
-  root.add(foot);
-
+  root.rotation.y = 0;
   root.updateMatrixWorld(true);
   return {
     root,
-    storeys: built.map((entry) => entry.storey),
+    storeys,
     hotspots,
-    update: ({ elapsed, reduce }: StoreyContext) => {
-      if (reduce) return;
-      beacon.position.y = 5.1 + Math.sin(elapsed * 0.6) * 0.24;
-      beacon.rotation.y = elapsed * 0.2;
+    walk,
+    /** the handle on each folly with a path onward: its crank, to turn, and
+        what a press on it lands on */
+    handles: handles.map(({ crank, hit }) => ({ crank, hit })),
+    update: ({ elapsed, reduce, waiting }: StoreyContext) => {
+      harbor.update(elapsed, reduce, facets.find(({ facet }) => facet.visible)?.facet);
+      walker.figure.position.y = moving && !reduce ? Math.abs(Math.sin(elapsed * 9)) * 0.08 : 0;
+      rings.forEach(({ ring, material }, i) => {
+        ring.visible = i === waiting;
+        if (!ring.visible) return;
+        // A slow breath, the way the games mark a place you can go.
+        const breath = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(elapsed * 3.2);
+        ring.scale.setScalar(1 + breath * 0.22);
+        material.opacity = 0.55 + 0.4 * (1 - breath);
+      });
     },
   };
 }
@@ -755,18 +675,35 @@ function composeHero(facet: THREE.Group, column: number, args: BuildArgs) {
   const { registry, palette, view } = args;
   const wall = new Wall(facet, column, args);
 
+  /* The title screen, set the way the games set theirs: a short line of
+     capitals underlined, then the name, everything centred. The line is one
+     unbroken rule's worth, so on a narrow wall it is tightened and then
+     scaled to fit rather than wrapped. */
+  const kicker = "Applied ML × Software Engineering".toUpperCase();
+  const kickerTracking = view.narrow ? 0.14 : 0.2;
+  const kickerSize = TYPE.label * 1.1;
+  const kickerWidth = measureInline({
+    text: kicker,
+    size: kickerSize,
+    weight: 600,
+    tracking: kickerTracking,
+  });
+  wall.text([
+    {
+      text: kicker,
+      size: kickerSize * Math.min(1, (column * 0.97) / kickerWidth),
+      weight: 600,
+      tracking: kickerTracking,
+      align: "center",
+      underline: true,
+      nowrap: true,
+    },
+  ]);
+
   const nameLines = view.narrow
     ? ["Nicolas", "Villegas-", "Kirchman"]
     : ["Nicolas", "Villegas-Kirchman"];
-  wall.text([
-    {
-      text: nameLines.join("\n"),
-      face: "display",
-      size: fitDisplayTo(nameLines, TYPE.hero, column * 0.97),
-      weight: 600,
-      lineHeight: 1.08,
-    },
-  ]);
+  wall.text([title(nameLines, TYPE.hero, column)], 1.0);
 
   wall.text(
     [
@@ -774,29 +711,32 @@ function composeHero(facet: THREE.Group, column: number, args: BuildArgs) {
         text: "Software engineer building the ML systems — and the infrastructure that runs them in production.",
         face: "display",
         size: TYPE.role,
-        weight: 600,
-        lineHeight: 1.26,
+        weight: 500,
+        lineHeight: 1.3,
+        align: "center",
       },
       {
         text: "Two disciplines, one practice: real-time data pipelines, diagnostic imaging systems, and the distributed infrastructure underneath both.",
         size: TYPE.bodyLg,
         color: INK.muted,
-        lineHeight: 1.48,
+        lineHeight: 1.5,
         gapBefore: 0.34,
+        align: "center",
       },
     ],
-    0.9
+    0.8
   );
 
   wall.text(
     [
-      { text: affiliation.school, face: "display", size: TYPE.title, weight: 600 },
+      { text: affiliation.school, face: "display", size: TYPE.title, weight: 700, align: "center" },
       {
         text: `${affiliation.degree} · ${affiliation.expected} · ${affiliation.gpa}`,
         size: TYPE.meta,
-        weight: 700,
+        weight: 600,
         color: INK.muted,
         gapBefore: 0.16,
+        align: "center",
       },
       {
         text: `Coursework in ${affiliation.coursework}.`,
@@ -804,6 +744,7 @@ function composeHero(facet: THREE.Group, column: number, args: BuildArgs) {
         color: INK.muted,
         gapBefore: 0.28,
         ruleBefore: true,
+        align: "center",
       },
       {
         text: affiliation.recognition,
@@ -812,6 +753,7 @@ function composeHero(facet: THREE.Group, column: number, args: BuildArgs) {
         color: INK.systems,
         gapBefore: 0.28,
         ruleBefore: true,
+        align: "center",
       },
     ],
     1.1
@@ -843,19 +785,12 @@ function composeWork(facet: THREE.Group, column: number, args: BuildArgs) {
   const featured = projects.filter((project) => project.featured);
   const secondary = projects.filter((project) => !project.featured);
 
-  wall.text([
-    {
-      text: "Selected Work",
-      face: "display",
-      size: fitDisplayTo(["Selected Work"], TYPE.section, column * 0.97),
-      weight: 600,
-    },
-  ]);
+  wall.text([title(["Selected Work"], TYPE.section, column)]);
 
   featured.forEach((project, index) => {
     wall.text(
       [
-        { text: project.name, face: "display", size: TYPE.projectTitle, weight: 600 },
+        { text: project.name, face: "display", size: TYPE.projectTitle, weight: 700 },
         {
           text: project.metric,
           size: TYPE.meta,
@@ -872,13 +807,13 @@ function composeWork(facet: THREE.Group, column: number, args: BuildArgs) {
 
   wall.text(
     [
-      { text: "More Projects", face: "display", size: TYPE.title, weight: 600, color: INK.muted },
+      { text: "More Projects", face: "display", size: TYPE.projectTitle, weight: 700 },
       ...secondary.flatMap((project, index) => [
         {
           text: project.name,
           face: "display" as const,
           size: TYPE.title,
-          weight: 600,
+          weight: 700,
           gapBefore: 0.42,
           ruleBefore: index > 0,
         },
@@ -901,19 +836,12 @@ function composeWork(facet: THREE.Group, column: number, args: BuildArgs) {
 function composeExperience(facet: THREE.Group, column: number, args: BuildArgs) {
   const wall = new Wall(facet, column, args);
 
-  wall.text([
-    {
-      text: "Experience",
-      face: "display",
-      size: fitDisplayTo(["Experience"], TYPE.section, column * 0.97),
-      weight: 600,
-    },
-  ]);
+  wall.text([title(["Experience"], TYPE.section, column)]);
 
   experience.forEach((entry, index) => {
     wall.text(
       [
-        { text: entry.name, face: "display", size: TYPE.title, weight: 600 },
+        { text: entry.name, face: "display", size: TYPE.projectTitle, weight: 700 },
         {
           text: entry.metric,
           size: TYPE.meta,
@@ -936,15 +864,7 @@ function composeSkills(facet: THREE.Group, column: number, args: BuildArgs) {
   const { view } = args;
 
   const capLines = view.narrow ? ["Technical", "Capabilities"] : ["Technical Capabilities"];
-  wall.text([
-    {
-      text: capLines.join("\n"),
-      face: "display",
-      size: fitDisplayTo(capLines, TYPE.section, column * 0.97),
-      weight: 600,
-      lineHeight: 1.1,
-    },
-  ]);
+  wall.text([title(capLines, TYPE.section, column)]);
 
   wall.text(
     skillGroups.flatMap((group, index) => [
@@ -952,7 +872,7 @@ function composeSkills(facet: THREE.Group, column: number, args: BuildArgs) {
         text: group.label,
         face: "display" as const,
         size: TYPE.title,
-        weight: 600,
+        weight: 700,
         gapBefore: index === 0 ? 0 : 0.46,
         ruleBefore: index > 0,
       },
@@ -974,14 +894,7 @@ function composeContact(facet: THREE.Group, column: number, args: BuildArgs) {
   const { registry, palette } = args;
   const wall = new Wall(facet, column, args);
 
-  wall.text([
-    {
-      text: "Get in touch",
-      face: "display",
-      size: fitDisplayTo(["Get in touch"], TYPE.section, column * 0.97),
-      weight: 600,
-    },
-  ]);
+  wall.text([title(["Get in touch"], TYPE.section, column)]);
 
   wall.text(
     [

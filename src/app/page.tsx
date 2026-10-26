@@ -4,19 +4,7 @@ import MirrorDisclosure from "@/components/MirrorDisclosure";
 import { affiliation, contact, experience, projects } from "@/data/content";
 import { skillGroups } from "@/data/content";
 
-/* This page has two renderings of one set of facts.
- *
- * The world — every heading, paragraph, control and label of it — is drawn by
- * three.js in <WorldCanvas>. The markup below is its mirror: the same content
- * in document order, with real headings and real links, which is what a
- * screen reader reads, what a crawler indexes, what keyboard focus moves
- * through, and what defines how far the document scrolls.
- *
- * It is also the page itself whenever the canvas cannot run. The mirror is
- * styled and visible by default; only once WorldCanvas has a live context does
- * it set `data-world="on"`, which is what clips the mirror out of view. No
- * JavaScript and no WebGL both land on a readable document, not a blank one.
- */
+/* A complete reading fallback is available before the interactive plaza loads. */
 
 const SECTIONS = [
   { id: "top", label: "Home" },
@@ -49,7 +37,8 @@ export default function Home() {
         </nav>
 
         <section className={styles.band} id="top">
-          <div className={styles.inner}>
+          <div className={`${styles.inner} ${styles.hero}`}>
+            <p className={styles.supporting}>Applied ML × Software Engineering</p>
             <h1>Nicolas Villegas-Kirchman</h1>
             <p className={styles.lead}>
               Software engineer building the ML systems — and the infrastructure
@@ -197,3 +186,4 @@ export default function Home() {
     </>
   );
 }
+

@@ -5,10 +5,9 @@ import { INK, TYPE } from "./theme";
 /* ------------------------------------------------------------------ *
  * Every word on this page is drawn by three.js. Two renderers do it:
  *
- *   1. Display type is real extruded geometry, built from the same
- *      Unbounded outlines next/font serves to the DOM mirror
- *      (see scripts/build-typeface.py). It is lit, it casts shadow, and
- *      it is architecture — not a texture of a heading.
+ *   1. Display type can be real extruded geometry, built from typeface
+ *      outlines (see scripts/build-typeface.py). It is lit, it casts
+ *      shadow, and it is architecture — not a texture of a heading.
  *   2. Running copy is painted into a canvas with the live webfont and
  *      mapped onto the facade of a slab standing in the world. The
  *      camera's isometric angle is locked, so a facade whose normal is
@@ -82,6 +81,9 @@ export type Run = {
   align?: "left" | "center";
   /** draw a rule above the run, inset to the text column */
   ruleBefore?: boolean;
+  /** underline the run's last line with a 2px rule its own width — Monument
+      Valley's mark for the line that introduces a title */
+  underline?: boolean;
 };
 
 export type PaintedText = {
@@ -101,6 +103,7 @@ type Placed = {
   run: Required<Pick<Run, "face" | "size" | "weight" | "color" | "lineHeight" | "tracking" | "align">>;
   top: number;
   rule: boolean;
+  underline: boolean;
 };
 
 function fontString(run: Placed["run"], dpu: number) {
@@ -110,7 +113,7 @@ function fontString(run: Placed["run"], dpu: number) {
 
 /* What `measureText().width` returns is the advance width — where the next
    glyph would start, which for the last glyph on a line is not where its ink
-   stops. An italic-ish or overhanging terminal (Unbounded has several) rides
+   stops. An italic-ish or overhanging terminal rides
    past its own advance, so a line measured as an exact fit loses the tail of
    its final glyph to the canvas edge. `actualBoundingBoxRight` is the inked
    extent, which is the thing that actually has to fit. */
@@ -193,7 +196,13 @@ export function paintText(spec: {
       : wrap(measure, text, column * dpu - WRAP_SLACK);
 
     cursor += raw.gapBefore ?? 0;
-    placed.push({ lines, run, top: cursor, rule: raw.ruleBefore ?? false });
+    placed.push({
+      lines,
+      run,
+      top: cursor,
+      rule: raw.ruleBefore ?? false,
+      underline: raw.underline ?? false,
+    });
     cursor += lines.length * run.size * run.lineHeight;
   });
 
@@ -220,9 +229,9 @@ export function paintText(spec: {
   // to push a measured-to-fit line past the edge of its own canvas.
   ctx.textBaseline = "alphabetic";
 
-  placed.forEach(({ lines, run, top, rule }) => {
+  placed.forEach(({ lines, run, top, rule, underline }) => {
     if (rule) {
-      ctx.fillStyle = "rgba(185, 174, 208, 0.26)";
+      ctx.fillStyle = "rgba(34, 31, 32, 0.14)";
       ctx.fillRect(padding * dpu, (top - run.size * 0.62) * dpu, column * dpu, 1);
     }
     ctx.font = fontString(run, dpu);
@@ -232,10 +241,20 @@ export function paintText(spec: {
     const x = (run.align === "center" ? spec.width / 2 : padding) * dpu;
     lines.forEach((line, i) => {
 
-      // `top` is the run's box top; drop to the first baseline. Unbounded and
-      // Manrope both sit at roughly 0.78em above the baseline at cap height.
+      // `top` is the run's box top; drop to the first baseline, which sits
+      // roughly 0.78em down for Cabin at the line heights used here.
       const baseline = (top + run.size * run.lineHeight * i + run.size * 0.78) * dpu;
       ctx.fillText(line, x, baseline);
+
+      if (underline && i === lines.length - 1) {
+        // Tracking adds a trailing space after the last letter; the rule
+        // should end on the ink, not on the gap after it.
+        const trailing = run.tracking * run.size * dpu;
+        const span = ctx.measureText(line).width - trailing;
+        const left = run.align === "center" ? x - span / 2 : x;
+        const weight = Math.max(2, run.size * dpu * 0.08);
+        ctx.fillRect(left, baseline + run.size * 0.42 * dpu, span, weight);
+      }
     });
   });
 

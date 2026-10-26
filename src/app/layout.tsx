@@ -1,17 +1,15 @@
 import type { Metadata } from "next";
-import { Unbounded, Manrope } from "next/font/google";
+import { Cabin } from "next/font/google";
 import "./globals.css";
 
-const display = Unbounded({
-  variable: "--font-display",
+/* One humanist family for everything, the way Monument Valley's own site sets
+   all of its type in Humanist 521. Cabin is drawn from the same Johnston and
+   Gill lineage, so titles can go uppercase and tracked without turning
+   mechanical. */
+const humanist = Cabin({
+  variable: "--font-humanist",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
-
-const body = Manrope({
-  variable: "--font-body",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -22,20 +20,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <head>
-        {/* The world's headings are extruded from these outlines, so the fetch
-            gates the first frame — start it with the document, not after
-            hydration. */}
-        <link
-          rel="preload"
-          href="/fonts/unbounded-600.typeface.json"
-          as="fetch"
-          type="application/json"
-          crossOrigin="anonymous"
-        />
-      </head>
+    <html lang="en" className={humanist.variable}>
       <body>{children}</body>
     </html>
   );
 }
+
