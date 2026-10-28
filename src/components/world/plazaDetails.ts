@@ -48,7 +48,6 @@ export function buildPlazaDetails(registry: Registry, town: THREE.Group, floor: 
   }
   // Drainpipes and masonry joints connect roofs and quay walls.
   for(const x of [-16.1,4.1]) box(copper,[.11,7.8,.11],[x,floor+3.9,-11.74]);
-  for(const x of [-13,-6,1]) for(let k=0;k<3;k++) box(cream,[.72,.055,.72],[x,floor+8.65+k*.35,-16]);
   for(const [x,z] of [[-13,19],[-8,19],[2,19],[19,19]]) {
     box(dark,[.4,.55,.4],[x,floor+.275,z]);box(copper,[.75,.15,.25],[x,floor+.65,z]);
   }
@@ -65,8 +64,7 @@ export function buildPlazaDetails(registry: Registry, town: THREE.Group, floor: 
     cylinder(cream,.2,.18,[x,floor+3.43,z]);
   };
   for(let i=0;i<=8;i++) {column(-16.4+i*2.6,-11.87);column(-16.92,-9.4+i*2.6);}
-  for(const y of [floor+3.52,floor+7.45])box(cream,[21.0,.1,.2],[-6,y,-11.86]);
-  box(copper,[21.2,.065,.21],[-6,floor+7.58,-11.85]);
+  box(cream,[21.0,.1,.2],[-6,floor+3.52,-11.86]);
 
   // Fine sash bars sit in front of the day recesses and illuminated panes.
   const frame=(x:number,y:number,z:number,yaw=0)=>{
@@ -79,15 +77,19 @@ export function buildPlazaDetails(registry: Registry, town: THREE.Group, floor: 
     const curve=new THREE.EllipseCurve(0,1.5,.4,.52,0,Math.PI,false,0);
     const path=new THREE.CatmullRomCurve3(curve.getPoints(24).map(p=>new THREE.Vector3(p.x,p.y,0)));
     group.add(new THREE.Mesh(registry.geometry(new THREE.TubeGeometry(path,24,.025,6,false)),cream));
-    town.add(group);
+    town.add(group);return group;
   };
   for(let i=0;i<11;i++)frame(-15+i*1.8,floor+4.3,-11.78);
+  for(const x of [-7.9,-5.7,-3.5]) {
+    // The taller hall's upper windows are three quarters of the main window height.
+    frame(x,floor+7.05,-11.78).scale.y=.75;
+  }
   for(let i=0;i<7;i++)for(const side of [-1,1])frame(19+side*2.85,floor+3.25,-2.2-(-5.4+i*1.8),side*Math.PI/2);
 
   // Mooring rings, wet stone courses, and joints give the quay a shoreline.
   for(const [width,x] of [[32.25,-7.125],[8.25,19.125]]) {
-    for(const y of [-.65,-1.4,-2.2])box(dark,[width-.2,.028,.035],[x,y,21.265]);
-    for(let joint=-width/2+1.2;joint<width/2;joint+=1.8)box(dark,[.025,.7,.035],[x+joint,-.99,21.265]);
+    for(const y of [-.65,-1.4,-2.2])box(dark,[width-2.7,.028,.035],[x,y,21.265]);
+    for(let joint=-width/2+1.6;joint<width/2-1.4;joint+=1.8)box(dark,[.025,.7,.035],[x+joint,-.99,21.265]);
   }
   for(const x of [-18,-12,-6,1,19]) {
     box(copper,[.2,.32,.05],[x,-.52,21.29]);
@@ -113,11 +115,12 @@ export function buildPlazaDetails(registry: Registry, town: THREE.Group, floor: 
   const glazing=registry.track(new THREE.MeshBasicMaterial({color:0xffce7a}));
   const shape=new THREE.Shape();shape.moveTo(-.23,0);shape.lineTo(.23,0);shape.lineTo(.23,.65);shape.absarc(0,.65,.23,0,Math.PI,false);shape.closePath();
   const windowGeometry=registry.geometry(new THREE.ShapeGeometry(shape));
-  const windows: {x:number;y:number;z:number;yaw:number}[]=[];
+  const windows: {x:number;y:number;z:number;yaw:number;scale?:number}[]=[];
   for(let i=0;i<11;i++)windows.push({x:-15+i*1.8,y:floor+4.38,z:-11.86,yaw:0});
+  for(const x of [-7.9,-5.7,-3.5])windows.push({x,y:floor+7.11,z:-11.86,yaw:0,scale:.75});
   for(let i=0;i<7;i++) for(const side of [-1,1]) windows.push({x:19+side*2.74,y:floor+3.33,z:-2.2-(-5.4+i*1.8),yaw:side*Math.PI/2});
   const litWindows=new THREE.InstancedMesh(windowGeometry,glazing,windows.length);
-  const dummy=new THREE.Object3D();windows.forEach((w,i)=>{dummy.position.set(w.x,w.y,w.z);dummy.rotation.set(0,w.yaw,0);dummy.scale.setScalar(1);dummy.updateMatrix();litWindows.setMatrixAt(i,dummy.matrix);});nightGroup.add(litWindows);
+  const dummy=new THREE.Object3D();windows.forEach((w,i)=>{dummy.position.set(w.x,w.y,w.z);dummy.rotation.set(0,w.yaw,0);dummy.scale.set(1,w.scale??1,1);dummy.updateMatrix();litWindows.setMatrixAt(i,dummy.matrix);});nightGroup.add(litWindows);
   const poolMaterial=registry.track(new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,
     vertexShader:`varying vec2 glowUV;void main(){glowUV=uv;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.);}`,
     fragmentShader:`varying vec2 glowUV;void main(){float d=length(glowUV-.5)*2.;float a=min(.9,pow(max(0.,1.-d),1.6)*.82);gl_FragColor=vec4(.98,.59,.20,a);\n#include <colorspace_fragment>\n}`

@@ -130,7 +130,7 @@
   .panelBody { padding: 4px 20px 20px; }
   .panelNav { padding: 12px 20px; }
 }
-:global(html[data-world="on"]) .world { background: #4c9eae; }
+:global(html[data-world="on"]) .world { background: #199fa9; }
 .intro h1 { color: #fff8e8; }
 @media(max-width: 900px) { .intro h1 br::after { content: " "; } }
 .sceneControls {position:absolute;right:28px;top:28px;display:flex;align-items:center;gap:4px;padding:5px;border-radius:9px;}

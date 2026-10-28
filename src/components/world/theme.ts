@@ -14,8 +14,8 @@ export const UNIT_PX = 54;
    stays colourful without reducing the contrast of the portfolio text. */
 export const COLOR = {
   // --- solids: the mass of the building ---
-  ivory: 0xfff2d5,
-  ivoryDeep: 0xe4cd9f,
+  ivory: 0xffedbf,
+  ivoryDeep: 0xd6b778,
   ivoryShadow: 0xac9979,
   rose: 0xec8a7f,
   roseDeep: 0xd0645f,
@@ -37,9 +37,9 @@ export const COLOR = {
   jadeDeep: 0x2a8188,
   iris: 0x8eafbf,
   irisDeep: 0x547f99,
-  saffron: 0xecc374,
+  saffron: 0xf3b83f,
   saffronDeep: 0xc1934b,
-  madder: 0xe58c79,
+  madder: 0xef7059,
   madderDeep: 0xba675c,
   opening: 0x284c61,
 
@@ -48,8 +48,8 @@ export const COLOR = {
      however densely it is built on. */
   lawn: 0x9acb9b,
   lawnDeep: 0x509d84,
-  rock: 0x658b9b,
-  rockDeep: 0x3c657c,
+  rock: 0x416e89,
+  rockDeep: 0x294d70,
 
   /** the one saturated note in the world, reserved for what can be operated */
   accent: 0xdf836d,
@@ -156,8 +156,8 @@ export class Registry {
   }
 
   /** Actual dimensions keep the bevel small and consistent on long beams. */
-  roundedBox(size: readonly number[], radius = .065) {
-    const bevel = Math.min(radius, Math.min(...size) * .22);
+  roundedBox(size: readonly number[], radius = .025) {
+    const bevel = Math.min(radius, Math.min(...size) * .12);
     const key = `${size.join(",")}:${bevel}`;
     let geometry = this.roundedBoxes.get(key);
     if (!geometry) {
@@ -172,13 +172,13 @@ export class Registry {
     return item;
   }
 
-  /** Softly blended coastal light keeps sculpted curves continuous. */
+  /** Three distinct ink-and-paint tones, with pixel-width antialiasing. */
   lit(color: number, extra?: THREE.MeshStandardMaterialParameters) {
     const parameters = { ...extra };
     delete parameters.roughness;
     delete parameters.metalness;
     const material = this.track(new THREE.MeshToonMaterial({ ...parameters, color }));
-    // Retain cool recesses and warm highlights without abrupt contour bands.
+    // Colored shadow bands define forms without a plastic specular gradient.
     material.onBeforeCompile = (shader) => {
       shader.uniforms.lanternNight=this.lanternNight;
       shader.uniforms.lanternPositions=this.lanternPositions;
@@ -202,17 +202,24 @@ ${shader.vertexShader}`
         `);
       shader.fragmentShader=`varying float lanternFill;
 ${shader.fragmentShader}`
-        .replace("#include <opaque_fragment>",`outgoingLight += diffuseColor.rgb * vec3(1.,.54,.22) * min(lanternFill,.8) * .95;
+        .replace("#include <opaque_fragment>",`float paintedLuma = dot(outgoingLight, vec3(.2126,.7152,.0722));
+outgoingLight = max(vec3(0.), mix(vec3(paintedLuma), outgoingLight, 1.12));
+float inkFacing = abs(dot(normalize(normal), normalize(vViewPosition)));
+float inkWidth = max(fwidth(inkFacing) * 1.25, .012);
+float inkEdge = 1. - smoothstep(inkWidth, inkWidth * 2., inkFacing);
+outgoingLight = mix(outgoingLight, diffuseColor.rgb * vec3(.10,.14,.25), inkEdge * .7);
+outgoingLight += diffuseColor.rgb * vec3(1.,.54,.22) * min(lanternFill,.8) * .95;
 #include <opaque_fragment>`);
       shader.fragmentShader = shader.fragmentShader.replace("#include <gradientmap_pars_fragment>", `
         vec3 getGradientIrradiance(vec3 normal, vec3 lightDirection) {
           float facing = dot(normal, lightDirection);
-          vec3 shade = mix(vec3(.30, .39, .51), vec3(.55, .64, .73), smoothstep(-.35, .3, facing));
-          return mix(shade, vec3(1.0), smoothstep(.3, .9, facing));
+          float aa = max(fwidth(facing) * .75, .006);
+          vec3 shade = mix(vec3(.24,.29,.52), vec3(.60,.63,.84), smoothstep(.15-aa,.15+aa,facing));
+          return mix(shade, vec3(1.,.96,.87), smoothstep(.65-aa,.65+aa,facing));
         }
       `);
     };
-    material.customProgramCacheKey = () => "coastal-soft-light-lanterns-v4";
+    material.customProgramCacheKey = () => "coastal-painted-cel-ink-lanterns-v6";
     return material;
   }
 
@@ -224,7 +231,7 @@ ${shader.fragmentShader}`
       this.edges.set(mesh.geometry, geometry);
     }
     this.edgeMaterial ??= this.track(new THREE.LineBasicMaterial({
-      color: 0x31566a, transparent: true, opacity: 0.16, depthWrite: false,
+      color: 0x283b59, transparent: true, opacity: 0.4, depthWrite: false,
     }));
     mesh.add(new THREE.LineSegments(geometry, this.edgeMaterial));
   }

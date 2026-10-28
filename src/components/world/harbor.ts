@@ -4,6 +4,7 @@ import { createSail } from "./sail";
 import { addBoatShadows } from "./boatShadows";
 import { batchStatic } from "./batching";
 import { buildShipping } from "./shipping";
+import { buildVesselHull, addSailingFittings } from "./vesselDesign";
 import { seeded } from "./architecture";
 import { COLOR, type Registry } from "./theme";
 import { SCREEN_RIGHT, SCREEN_UP, screenBox } from "./layout";
@@ -19,9 +20,9 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
     uniforms: {
       time: { value: 0 },
       night: { value: 0 },
-      water: { value: new THREE.Color(0x489eaf) },
-      deep: { value: new THREE.Color(0x3e91a7) },
-      light: { value: new THREE.Color(0x55aaba) },
+      water: { value: new THREE.Color(0x199fa9) },
+      deep: { value: new THREE.Color(0x178a9f) },
+      light: { value: new THREE.Color(0x28b9b4) },
       foam: { value: new THREE.Color(0xc5eae3) },
     },
     vertexShader: `
@@ -40,8 +41,9 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
         vec2 p = seaPosition;
         float swell = sin(p.x * .075 + p.y * .11 + time * .13)
                     + sin(p.y * .065 - time * .09);
-        vec3 color = mix(deep, water, smoothstep(-1.3, .45, swell));
-        color = mix(color, light, smoothstep(.8, 1.85, swell));
+        float swellAA = max(fwidth(swell), .02);
+        vec3 color = mix(deep, water, smoothstep(-.65-swellAA,-.65+swellAA,swell));
+        color = mix(color, light, smoothstep(1.25-swellAA,1.25+swellAA,swell));
         float smallWaves = sin(p.x*.48+p.y*.31+time*.7)*sin(p.y*.38-time*.45);
         color = mix(color, light, smoothstep(.65, 1., smallWaves)*.12);
         // Advect the entire highlight field with a visible, gently varying current.
@@ -171,37 +173,28 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
   }
 
   const boats: { group: THREE.Group; x: number; z: number; yaw: number; phase: number; updateShadows: () => void; cloth: ReturnType<typeof createSail>[]; nightLights: THREE.Group; reflection: ReturnType<typeof buildWaterGlint> }[] = [];
-  const hullShape = new THREE.Shape();
-  hullShape.moveTo(0, 3.0);
-  hullShape.quadraticCurveTo(1.2, 2.0, 1.35, 1.1);
-  hullShape.quadraticCurveTo(1.4, -.6, 1.15, -2.1);
-  hullShape.quadraticCurveTo(1.05, -2.6, .75, -2.6);
-  hullShape.lineTo(-.75, -2.6);
-  hullShape.quadraticCurveTo(-1.05, -2.6, -1.15, -2.1);
-  hullShape.quadraticCurveTo(-1.4, -.6, -1.35, 1.1);
-  hullShape.quadraticCurveTo(-1.2, 2.0, 0, 3.0);
-  hullShape.closePath();
-  const hull = registry.geometry(new THREE.ExtrudeGeometry(hullShape, {
-    depth: .8, bevelEnabled: true, bevelThickness: .15, bevelSize: .12, bevelSegments: 3, curveSegments: 12, steps: 1,
-  }));
+  const hullPaint=[registry.lit(0xff3985),registry.lit(0x1588f5)];
+  const sailPaint=[registry.lit(0xff4e9a),registry.lit(0x168bf5)];
+  const goldenSail=registry.lit(0xffc92d);
   // Leave clearance for the bow and its rocking motion beside the crosspiece.
   [[6.3, end - 6.4, -.2, 1], [-10, end + 5.7, .45, .78]].forEach(([x, z, yaw, scale], i) => {
     const boat = new THREE.Group();
     boat.name = `sailboat-${i}`;
     boat.scale.setScalar(scale);
-    const shell = new THREE.Mesh(hull, [ivory, i === 0 ? coral : navy]);
-    shell.rotation.x = Math.PI / 2;
-    boat.add(shell);
-    addBox(boat, woodLight, [.18, 5.6, .18], [0, 2.8, -.1]);
+    boat.add(buildVesselHull(registry,{stern:-2.6,bow:3,beam:2.7,deck:0,depth:1,
+      paint:hullPaint[i],trim:ivory,timber:woodLight,rail:brass}));
+    addSailingFittings(registry,boat,0,hullPaint[i]);
+    const mast=new THREE.Mesh(registry.geometry(new THREE.CylinderGeometry(.045,.075,5.6,12)),woodLight);
+    mast.position.set(0,2.8,-.1);boat.add(mast);
+    addBox(boat,brass,[1.4,.045,.055],[0,3.7,-.1]);
     addBox(boat, woodLight, [3.5, .12, .12], [-.55, .85, 0]);
     const cloth = [
-      createSail(registry, [[0, 1, 0], [0, 5.3, 0], [-2.8, 1, 0]], ivory, i * 1.7, .8),
-      createSail(registry, [[.18, 1, .08], [.18, 4.4, .08], [1.7, 1, .08]], i === 0 ? ivory : coral, i * 1.7 + .6, .55),
+      createSail(registry, [[0, 1, 0], [0, 5.3, 0], [-2.8, 1, 0]], sailPaint[i], i * 1.7, .8,{color:0xfff4cc,motif:"stripes"}),
+      createSail(registry, [[.18, 1, .08], [.18, 4.4, .08], [1.7, 1, .08]], goldenSail, i * 1.7 + .6, .55,{color:i===0?0xff5960:0x147de2,motif:"sun"}),
       createSail(registry, [[.05, 4.85, .1], [.05, 5.25, .1], [.95, 5.05, .1]], coral, i + 2, .18),
     ];
     cloth.forEach(sail => boat.add(sail.mesh));
     // Deck slats, bow cleat and rigging keep the small boats readable up close.
-    for (let k = 0; k < 6; k++) addBox(boat, woodLight, [1.65, .07, .12], [0, .04, -1.6 + k * .55]);
     addBox(boat, brass, [.5, .14, .18], [0, .2, 2.0]);
     const fenderGeometry = registry.geometry(new THREE.CapsuleGeometry(.12, .3, 4, 10));
     for (const side of [-1, 1]) for (const z of [-1.4, .6]) {
@@ -214,6 +207,8 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
     const rigging = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(0, 5.3, -.08), new THREE.Vector3(0, .15, 2.3),
       new THREE.Vector3(0, 5.3, -.08), new THREE.Vector3(0, .15, -2.3),
+      new THREE.Vector3(0,5.3,-.1),new THREE.Vector3(-1.1,.18,-.1),
+      new THREE.Vector3(0,5.3,-.1),new THREE.Vector3(1.1,.18,-.1),
     ]);
     boat.add(new THREE.LineSegments(registry.geometry(rigging), registry.track(new THREE.LineBasicMaterial({ color: 0xc7ab82 }))));
     boat.position.set(x, seaY + .7, z);
@@ -310,9 +305,9 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
       sea.uniforms.night.value=Number(night);
       dockLamp.emissiveIntensity=night?2.8:0;shipping.setNight(night);dockHalos.visible=night;
       boats.forEach(boat=>{boat.nightLights.visible=night;boat.reflection.mesh.visible=night;});
-      sea.uniforms.water.value.setHex(night?0x173e5b:0x489eaf);
-      sea.uniforms.deep.value.setHex(night?0x102840:0x3e91a7);
-      sea.uniforms.light.value.setHex(night?0x245c75:0x55aaba);
+      sea.uniforms.water.value.setHex(night?0x173e5b:0x199fa9);
+      sea.uniforms.deep.value.setHex(night?0x102840:0x178a9f);
+      sea.uniforms.light.value.setHex(night?0x245c75:0x28b9b4);
       sea.uniforms.foam.value.setHex(night?0x709ab2:0xc5eae3);
     },
     update: (elapsed: number, reduce: boolean, readingFace?: THREE.Object3D) => {

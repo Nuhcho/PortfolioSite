@@ -9,13 +9,13 @@ export function buildGarden(registry: Registry, trees: At[], pots: At[], boxes: 
   group.name = "wind-garden";
   const time = { value: 0 };
   const stem: Piece[] = [], crowns: Piece[] = [], blades: Piece[] = [], flowers: Piece[] = [], petals: Piece[] = [];
-  const greens = [0x64b98b, 0x83cfa0, 0x409c83, 0x9bd2a0];
+  const greens = [0x329f72, 0x6ac576, 0x228c70, 0x88cd72];
   trees.forEach(([x, y, z], i) => {
     stem.push({ at: [x, y + 1, z], scale: [.15, 2, .15], color: 0xb57f55 });
-    for (let k = 0; k < 9; k++) {
+    crowns.push({ at: [x, y + 2.3, z], scale: [i % 2 ? 1.3 : 1.05, i % 2 ? 1.25 : 1.5, 1.0],
+      color: greens[i % greens.length], tilt: Math.sin(i * 2.4) * .12 });
+    for (let k = 0; k < 3; k++) {
       const a = k * 2.4 + i;
-      crowns.push({ at: [x + Math.cos(a) * .55, y + 2.1 + k % 2 * .55, z + Math.sin(a) * .5],
-        scale: [.78 + k % 3 * .09, .82 + k % 2 * .2, .76], color: greens[(i + k) % greens.length] });
       stem.push({ at: [x + Math.cos(a) * .22, y + 1.65, z + Math.sin(a) * .22], scale: [.08, 1.1, .08], color: 0xb57f55, tilt: Math.cos(a) * .45 });
     }
   });
@@ -57,7 +57,7 @@ export function buildGarden(registry: Registry, trees: At[], pots: At[], boxes: 
         shader.uniforms.gardenTime = time;
         shader.vertexShader = deform + shader.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nbendGarden(transformed);");
       };
-      material.customProgramCacheKey = () => "coastal-soft-garden-v2";
+      material.customProgramCacheKey = () => "coastal-painted-garden-v3";
     }
     const mesh = new THREE.InstancedMesh(registry.geometry(geometry), material, pieces.length);
     const dummy = new THREE.Object3D();
@@ -80,7 +80,17 @@ export function buildGarden(registry: Registry, trees: At[], pots: At[], boxes: 
     group.add(mesh);
   };
   make(stem, new THREE.CylinderGeometry(1, 1.15, 1, 12), false);
-  make(crowns, new THREE.SphereGeometry(1, 16, 12), true);
+  // Continuous, asymmetric crowns replace the repeated spherical clumps.
+  const canopy = new THREE.SphereGeometry(1, 24, 18);
+  const vertices = canopy.getAttribute("position");
+  for (let i = 0; i < vertices.count; i++) {
+    const x = vertices.getX(i), y = vertices.getY(i), z = vertices.getZ(i);
+    const swell = 1 + .11 * Math.sin(x * 4.2 + y * 2.1) * Math.sin(z * 3.7 - y * 1.6)
+      + .055 * Math.sin(z * 7 + x * 3);
+    vertices.setXYZ(i, x * swell + y * y * .11, y * swell, z * swell);
+  }
+  canopy.computeVertexNormals();
+  make(crowns, canopy, true);
   make(blades, new THREE.SphereGeometry(1, 10, 8), true);
   make(flowers, new THREE.SphereGeometry(1, 10, 6), true);
   make(petals, new THREE.SphereGeometry(1, 8, 6), true);

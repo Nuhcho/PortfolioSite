@@ -5,12 +5,14 @@ import { buildResidents } from "./residents";
 import { buildPlazaDetails } from "./plazaDetails";
 import { buildGarden } from "./garden";
 import { buildFountainWater } from "./fountain";
+import { buildBuildingDetails } from "./buildingDesign";
 import { type Site, seeded, stairRun } from "./architecture";
 import { SCREEN_RIGHT, SCREEN_UP, screenBox } from "./layout";
 import { type Registry, type Palette } from "./theme";
 
 /** A walkable piazza on two quays. All levels are independent of copy length. */
-export function buildPlaza(registry: Registry, palette: Palette) {
+export async function buildPlaza(registry: Registry, palette: Palette,
+  checkpoint: () => Promise<void>) {
   const root = new THREE.Group();
   root.name = "venetian-plaza";
   const town = new THREE.Group();
@@ -29,61 +31,83 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   };
   const baluster = registry.geometry(new THREE.LatheGeometry(
     [[.085,0],[.085,.08],[.055,.12],[.08,.28],[.095,.36],[.065,.48],[.045,.62],[.075,.68],[.075,.75]].map(([r,y])=>new THREE.Vector2(r,y)),16));
-  const limestone = registry.lit(0xfff1d5);
-  const paving = registry.lit(0xf1d4ac);
-  const terracotta = registry.lit(0xf07561);
-  const peach = registry.lit(0xffb29a);
-  const teal = registry.lit(0x69d9c7);
-  const wood = registry.lit(0xc68e57);
-  const shutter = registry.lit(0x218e98);
-  const roofSeam = registry.lit(0xc95a52);
+  const limestone = registry.lit(0xffedbf);
+  const terracotta = registry.lit(0xef705b);
+  const pink = registry.lit(0xff4f91);
+  const yellow = registry.lit(0xffd32e);
+  const azure = registry.lit(0x359eff);
+  const violet = registry.lit(0xa16aff);
+  const jade = registry.lit(0x0cddb0);
+  const blueRoof = registry.lit(0x4165d5);
+  const violetRoof = registry.lit(0x7946bd);
+  const goldRoof = registry.lit(0xffad24);
+  const teal = registry.lit(0x29b99d);
+  const wood = registry.lit(0xb67a45);
+  const shutter = registry.lit(0x137e91);
+  const roofSeam = registry.lit(0xc64c38);
   const lampGlass = registry.lit(0xffd47e,{emissive:0xffac45,emissiveIntensity:0});
   const materials = (stone: THREE.Material) => ({ stone, trim: limestone,
     shadow: palette.rockDeep, accent: terracotta, recess: palette.deep });
 
-  // Disjoint quays leave a real six-unit canal. No coplanar overlapping slabs.
+  // Rounded waterfront outlines descend below the water instead of floating
+  // above it like a display plinth. The six-unit canal remains open.
   [[32.25, -7.125], [8.25, 19.125]].forEach(([width, x]) => {
-    box(town, palette.rockDeep, [width, 2.8, 40.5], [x, -1.4, 1]);
-    box(town, limestone, [width, .35, 40.5], [x, .175, 1], true);
-    for (let k = 0; k < 12; k++) {
-      box(town, palette.rock, [width - .12, .16, .12], [x, -1.1, -18.9 + k * 3.55]);
+    const w = width / 2, d = 20.25, r = 1.3;
+    const shore = new THREE.Shape();
+    shore.moveTo(-w+r,-d);shore.lineTo(w-r,-d);
+    shore.quadraticCurveTo(w,-d,w,-d+r);shore.lineTo(w,d-r);
+    shore.quadraticCurveTo(w,d,w-r,d);shore.lineTo(-w+r,d);
+    shore.quadraticCurveTo(-w,d,-w,d-r);shore.lineTo(-w,-d+r);
+    shore.quadraticCurveTo(-w,-d,-w+r,-d);shore.closePath();
+    for(const [depth,top,material] of [[3.65,0,palette.rockDeep],[.35,.35,limestone]] as const) {
+      const quay = new THREE.Mesh(registry.geometry(new THREE.ExtrudeGeometry(shore,{depth,bevelEnabled:false,curveSegments:16})),material);
+      quay.rotation.x=Math.PI/2;quay.position.set(x,top,1);town.add(quay);
     }
   });
-  // An understated paving grid is geometry slightly above the quay, never
-  // two surfaces competing at the same depth.
-  for (let x = -15; x <= 4; x += 2.2) {
-    for (let z = -8; z <= 16; z += 2.2) {
-      if (Math.hypot(x + 6, z - 3) < 3.9) continue;
-      box(town, (Math.round((x + 15) / 2.2) + Math.round((z + 8) / 2.2)) % 5 === 0 ? limestone : paving, [2.1, .025, 2.1], [x, floor + .018, z]);
-    }
+  const paving = [0xe3cc95,0xe8d39f,0xdfc78e].map(color=>registry.lit(color));
+  const pavingCorner=(column:number,row:number)=>new THREE.Vector3(-16.05+column*2.2+Math.sin(column*19.7+row*8.3)*.12,
+    floor+.025,-9.05+row*2.2+Math.sin(column*7.3-row*21.1)*.12);
+  // Flat, irregular stone joints replace the raised checkerboard of blocks.
+  for(let column=0;column<9;column++)for(let row=0;row<11;row++) {
+      const corners=[pavingCorner(column,row),pavingCorner(column,row+1),pavingCorner(column+1,row+1),pavingCorner(column+1,row)];
+      const center=corners.reduce((sum,p)=>sum.add(p),new THREE.Vector3()).multiplyScalar(.25);
+      if(Math.hypot(center.x+6,center.z-3)<3.9)continue;
+      const geometry=registry.geometry(new THREE.BufferGeometry());
+      geometry.setFromPoints(corners.map(p=>p.lerp(center,.012)));
+      geometry.setIndex([0,1,2,0,2,3]);geometry.computeVertexNormals();
+      const tint=Math.floor(Math.abs(Math.sin(column*12.9+row*8.7))*paving.length);
+      town.add(new THREE.Mesh(geometry,paving[tint]));
   }
 
-  const window = (parent: THREE.Object3D, x: number, y: number, z: number, yaw = 0) => {
+  await checkpoint();
+  const window = (parent: THREE.Object3D, x: number, y: number, z: number, yaw = 0,
+    accent: THREE.Material = shutter, heightScale = 1) => {
     const model = registry.model("window", materials(palette.deep));
     if (!model) return;
-    model.scale.set(.72, 1.0, 1);
+    model.scale.set(.72, heightScale, 1);
     model.rotation.y = yaw;
     model.position.set(x, y, z);
     parent.add(model);
     const trim = new THREE.Group();
     trim.position.set(x, y, z);
     trim.rotation.y = yaw;
+    trim.scale.y = heightScale;
     for (const side of [-1, 1]) {
-      box(trim, shutter, [.3, 1.3, .12], [side * .58, .65, .07]);
+      box(trim, accent, [.3, 1.3, .12], [side * .58, .65, .07]);
       for (let i = 0; i < 4; i++) box(trim, teal, [.24, .045, .14], [side * .58, .22 + i * .26, .09]);
     }
     box(trim, limestone, [1.55, .13, .45], [0, -.05, .12]);
     parent.add(trim);
   };
   const roof = (parent: THREE.Object3D, width: number, depth: number, rise: number,
-    at: [number, number, number], yaw = 0) => {
+    at: [number, number, number], yaw = 0, paint: THREE.MeshToonMaterial = terracotta) => {
     const w = width / 2, d = depth / 2;
     const positions = [-w,0,-d, w,0,-d, -w,0,d, w,0,d, -w,rise,0, w,rise,0];
     const geometry = registry.geometry(new THREE.BufferGeometry());
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     geometry.setIndex([0,4,5,0,5,1, 2,3,5,2,5,4, 0,2,4,1,5,3, 0,1,3,0,3,2]);
     geometry.computeVertexNormals();
-    const model = new THREE.Mesh(geometry.toNonIndexed(), terracotta);
+    const model = new THREE.Mesh(geometry.toNonIndexed(), paint);
     model.geometry.computeVertexNormals();
     registry.geometry(model.geometry);
     model.position.set(...at);
@@ -93,21 +117,24 @@ export function buildPlaza(registry: Registry, palette: Palette) {
     const tilework = new THREE.Group();
     tilework.position.set(...at);
     tilework.rotation.y = yaw;
-    const roll = registry.geometry(new THREE.CylinderGeometry(.075, .075, Math.hypot(d, rise), 10));
+    const tileInk=paint===terracotta?roofSeam:registry.lit(paint.color.clone().multiplyScalar(.55).getHex());
+    const roll = registry.geometry(new THREE.CylinderGeometry(.035, .035, Math.hypot(d, rise), 10));
     const up = new THREE.Vector3(0, 1, 0);
     for (let x = -w + .25; x < w; x += .55) {
       for (const side of [-1, 1]) {
-        const tile = new THREE.Mesh(roll, roofSeam);
-        tile.position.set(x, rise / 2 + .065, side * d / 2);
+        const tile = new THREE.Mesh(roll, tileInk);
+        tile.position.set(x, rise / 2 + .03, side * d / 2);
         tile.quaternion.setFromUnitVectors(up, new THREE.Vector3(0, -rise, side * d).normalize());
         tilework.add(tile);
       }
     }
     for (let course = 1; course <= 3; course++) for (const side of [-1, 1]) {
       const along = course / 4;
-      box(tilework, terracotta, [width, .045, .055], [0, rise * (1 - along) + .055, side * d * along]);
+      box(tilework, tileInk, [width, .022, .03], [0, rise * (1 - along) + .025, side * d * along]);
     }
-    box(tilework, terracotta, [width + .1, .16, .22], [0, rise + .06, 0]);
+    const ridge=new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-w,rise+.04,0),new THREE.Vector3(0,rise+.08,0),new THREE.Vector3(w,rise+.04,0)]);
+    tilework.add(new THREE.Mesh(registry.geometry(new THREE.TubeGeometry(ridge,24,.065,8,false)),paint));
     parent.add(tilework);
   };
   const arcade = (parent: THREE.Object3D, count: number, depth: number, height: number,
@@ -131,11 +158,21 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   palazzo.name = "courtyard-palazzo";
   town.add(palazzo);
   arcade(palazzo, 8, 6, 3.5, [-6, floor, -15]);
-  box(palazzo, peach, [20.8, 4.2, 6], [-6, floor + 5.6, -15], true);
-  box(palazzo, limestone, [21.3, .24, 6.45], [-6, floor + 7.82, -15]);
-  roof(palazzo, 21.8, 7, 1.35, [-6, floor + 7.95, -15]);
-  for (let i = 0; i < 11; i++) window(palazzo, -15 + i * 1.8, floor + 4.3, -11.99);
-  [-16.1, 4.1].forEach((x) => box(palazzo, limestone, [.22, 4.2, .22], [x, floor + 5.6, -11.88]));
+  const wings = [
+    {x:-12.8,width:7.2,top:8.05,paint:pink,roof:violetRoof},
+    {x:-5.7,width:7,top:9,paint:yellow,roof:terracotta},
+    {x:1.1,width:6.6,top:7.8,paint:azure,roof:blueRoof},
+  ];
+  for(const wing of wings) {
+    box(palazzo,wing.paint,[wing.width,wing.top-3.5,6],[wing.x,floor+(wing.top+3.5)/2,-15],true);
+    box(palazzo,limestone,[wing.width+.16,.22,6.35],[wing.x,floor+wing.top+.05,-15]);
+    roof(palazzo,wing.width+.5,7,1.3,[wing.x,floor+wing.top+.17,-15],0,wing.roof);
+  }
+  for (let i = 0; i < 11; i++) {
+    const x=-15+i*1.8;
+    window(palazzo,x,floor+4.3,-11.99,0,x < -9.2 ? jade : x < -2.2 ? blueRoof : yellow);
+  }
+  for(const x of [-7.9,-5.7,-3.5])window(palazzo,x,floor+7.05,-11.99,0,blueRoof,.75);
 
   arcade(town, 8, 4.4, 3.5, [-19.2, floor, 1], Math.PI / 2);
   box(town, teal, [4.4, .3, 20.8], [-19.2, floor + 3.65, 1]);
@@ -150,7 +187,7 @@ export function buildPlaza(registry: Registry, palette: Palette) {
     town.add(pavilion);
   }
   // The only tower is a modest campanile, lower than the old single storey.
-  const bell = registry.model("tower_dome", materials(peach));
+  const bell = registry.model("tower_dome", materials(azure));
   if (bell) {
     bell.name = "campanile";
     bell.scale.set(1.45, 1.6, 1.45);
@@ -158,19 +195,24 @@ export function buildPlaza(registry: Registry, palette: Palette) {
     town.add(bell);
   }
 
+  await checkpoint();
   // A lower canal-side wing on the opposite bank shares the same vocabulary.
   const canalHouse = new THREE.Group();
   canalHouse.position.set(19, floor, -2.2);
   canalHouse.rotation.y = Math.PI / 2;
   town.add(canalHouse);
   arcade(canalHouse, 5, 5.4, 2.8, [0, 0, 0], 0, teal);
-  box(canalHouse, teal, [13, 3.1, 5.4], [0, 4.35, 0], true);
-  box(canalHouse, limestone, [13.4, .22, 5.8], [0, 6.01, 0]);
-  roof(canalHouse, 13.9, 6.3, 1.2, [0, 6.12, 0]);
-  for (let i = 0; i < 7; i++) {
-    window(canalHouse, -5.4 + i * 1.8, 3.25, 2.71);
-    window(canalHouse, -5.4 + i * 1.8, 3.25, -2.71, Math.PI);
+  for(const wing of [{x:-3.25,top:6.6,paint:jade,roof:goldRoof},{x:3.25,top:6.15,paint:violet,roof:blueRoof}]) {
+    box(canalHouse,wing.paint,[6.5,wing.top-2.8,5.4],[wing.x,(wing.top+2.8)/2,0],true);
+    box(canalHouse,limestone,[6.65,.2,5.7],[wing.x,wing.top+.05,0]);
+    roof(canalHouse,6.95,6.3,1.25,[wing.x,wing.top+.17,0],0,wing.roof);
   }
+  for (let i = 0; i < 7; i++) {
+    window(canalHouse, -5.4 + i * 1.8, 3.25, 2.71,0,i<3?pink:yellow);
+    window(canalHouse, -5.4 + i * 1.8, 3.25, -2.71, Math.PI,i<3?pink:yellow);
+  }
+  buildBuildingDetails(registry,palazzo,canalHouse,floor);
+  await checkpoint();
 
   // Every stair has explicit endpoints: quay -> bridge deck -> opposite quay.
   const stone = { stone: palette.shelfDeep, deep: palette.rock, accent: palette.sand };
@@ -196,6 +238,7 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   stairRun(town, site, stone, new THREE.Vector3(-19.2, floor, 17.2),
     new THREE.Vector3(-19.2, floor + 3.8, 1 + 20.8 / 2));
 
+  await checkpoint();
   // The centre of the square is a fountain, not a building or a staircase.
   const fountain = new THREE.Group();
   fountain.position.set(-6, floor, 3);
@@ -224,6 +267,7 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   const fountainWater = buildFountainWater(registry);
   fountain.add(fountainWater.group);
   fountainWater.update(0, true);
+  await checkpoint();
 
   // Cafe tables, parasols, benches and planted edges make the square inhabited.
   [[1, -3], [2, 4], [.5, 11]].forEach(([x, z], i) => {
@@ -266,6 +310,7 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   harbor.update(0, true);
   const residents=buildResidents(registry,floor);
   town.add(residents.group);
+  await checkpoint();
 
   // Dedicated hit volumes make the full landmark clickable, including its arches.
   const hitMaterial = registry.track(new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
@@ -305,10 +350,6 @@ export function buildPlaza(registry: Registry, palette: Palette) {
   }
 
   // Small Venetian details are attached to architecture, clear of the walkways.
-  for (const x of [-13, -6, 1]) {
-    box(palazzo, terracotta, [.7, 1.7, .7], [x, floor + 9.1, -16]);
-    box(palazzo, limestone, [1.0, .18, 1.0], [x, floor + 10, -16]);
-  }
   for (const x of [-12, -6, 0]) {
     box(town, limestone, [2.4, .2, 1.0], [x, floor + 4.05, -11.4]);
     for (const dx of [-1, -.5, 0, .5, 1]) box(town, shutter, [.07, .75, .07], [x + dx, floor + 4.5, -10.98]);
@@ -342,6 +383,7 @@ export function buildPlaza(registry: Registry, palette: Palette) {
     [[-15, floor + .85, 7], [-15, floor + .85, 14], [5.7, floor + .85, 5], [20, floor + .85, 13]],
     [[-14, floor + 4.3, -11.55], [-8, floor + 4.3, -11.55], [-2, floor + 4.3, -11.55], [4, floor + 4.3, -11.55]]);
   town.add(garden.group);
+  await checkpoint();
 
   // Clock face inset on the campanile, with contrasting hands.
   const clock = new THREE.Mesh(registry.geometry(new THREE.CircleGeometry(.6, 24)), limestone);
@@ -365,6 +407,7 @@ export function buildPlaza(registry: Registry, palette: Palette) {
       .addScaledVector(SCREEN_UP, bounds.centerY).applyAxisAngle(new THREE.Vector3(0,1,0), -yaw));
   }
   root.rotation.y = 0;
+  await checkpoint();
   return {
     root, town, dynamic: [garden.group, fountainWater.group, details.group, residents.group], poses, centres, hotspots, width: width + 5, height: height + 5,
     setNight: (night: boolean) => {

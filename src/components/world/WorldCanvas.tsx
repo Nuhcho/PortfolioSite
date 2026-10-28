@@ -1,21 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
-import { loadArchitecture, type ArchitectureAssets } from "./models";
+import { loadArchitecture, type ArchitectureAssets, type DownloadProgress } from "./models";
 import { batchStatic } from "./batching";
 import { PlazaOrbit } from "./orbit";
 import { SCREEN_RIGHT, SCREEN_UP } from "./layout";
 import { buildPlaza } from "./plaza";
 import { ISO_DIR, Registry, createPalette } from "./theme";
 import PlazaPanel from "./PlazaPanel";
+import WorldLoader from "./WorldLoader";
 import { PLAZA_STOPS, type PlazaStop } from "./plazaStops";
 import styles from "./WorldCanvas.module.css";
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
+// Keep the loading animation responsive between synchronous scene tasks.
+const yieldForPaint = () => new Promise<void>(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
 
 /** Landmarks are the navigation; HTML controls follow their world positions. */
-export default function WorldCanvas() {
+export default function WorldCanvas({ children }: { children: ReactNode }) {
+  const [sceneReady, setSceneReady] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({ loaded: 0, total: null });
+  const [preparingScene, setPreparingScene] = useState(false);
+  const [textMode, setTextMode] = useState(false);
   const [night, setNight] = useState(false);
   const nightRef = useRef(false);
   const dragClickRef = useRef(false);
@@ -27,35 +34,44 @@ export default function WorldCanvas() {
   const choose = (id: PlazaStop | null) => { selectedRef.current = id; setSelected(id); };
   const hostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (textMode) return;
     const host = hostRef.current;
     if (!host) return;
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     } catch {
+      queueMicrotask(() => setTextMode(true));
       return;
     }
     let disposed = false;
+    const download = new AbortController();
     let assets: ArchitectureAssets | undefined;
     let registry: Registry | undefined;
     let teardown: (() => void) | undefined;
+    const checkpoint = async () => {
+      download.signal.throwIfAborted();
+      await yieldForPaint();
+      download.signal.throwIfAborted();
+    };
     const start = async () => {
-      try {
-        assets = await loadArchitecture();
-      } catch {
-        renderer.dispose();
-        return;
-      }
+      assets = await loadArchitecture(progress => {
+        if (!disposed) setDownloadProgress(progress);
+      }, download.signal, async () => {
+        if (disposed) return;
+        setPreparingScene(true);
+        await checkpoint();
+      });
       if (disposed) {
         assets.dispose();
-        renderer.dispose();
         return;
       }
+      await checkpoint();
       registry = new Registry(assets);
       const scene = new THREE.Scene();
-      const skyLight = new THREE.HemisphereLight(0xe5f4ff, 0xb2a3d9, .75);
+      const skyLight = new THREE.HemisphereLight(0xbce7fa, 0x8066ad, .5);
       scene.add(skyLight);
-      const sun = new THREE.DirectionalLight(0xfffbef, 2.9);
+      const sun = new THREE.DirectionalLight(0xfffbef, 2.7);
       sun.position.set(25, 45, 18);
       sun.castShadow = true;
       const shadowSize = innerWidth > 900 ? 4096 : 2048;
@@ -67,7 +83,7 @@ export default function WorldCanvas() {
       renderer.shadowMap.type = THREE.PCFShadowMap;
       scene.add(sun);
 
-      const plaza = buildPlaza(registry, createPalette(registry));
+      const plaza = await buildPlaza(registry, createPalette(registry), checkpoint);
       plaza.root.rotation.y=plaza.poses[0];
       scene.add(plaza.root);
       plaza.root.traverse(object => {
@@ -78,6 +94,7 @@ export default function WorldCanvas() {
         object.castShadow = !object.userData.noCastShadow && !materials.some(material => material instanceof THREE.MeshBasicMaterial || material instanceof THREE.ShadowMaterial);
       });
       batchStatic(plaza.town, registry, [...plaza.dynamic, ...plaza.hotspots.map(h => h.hit)]);
+      await checkpoint();
       // Onboard contact shadows handle ship detail independently. A conservative
       // shoreline bias avoids acne on thin rails, bridge decks and pier planks.
       sun.shadow.normalBias = .07;
@@ -87,6 +104,9 @@ export default function WorldCanvas() {
       let lastShadowRotation = Infinity;
       let needsRender = true;
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 700);
+      await renderer.compileAsync(scene, camera);
+      if (disposed) return;
+      await checkpoint();
       const preferredRatio = Math.min(2.5, Math.max(devicePixelRatio, 2));
       let pixelRatio = preferredRatio;
       let qualitySamples = 0, qualityTotal = 0, lastQualityCheck = 0;
@@ -113,11 +133,11 @@ export default function WorldCanvas() {
       const framingHeight=plaza.height+2*Math.abs(framingDelta.dot(SCREEN_UP));
       let lastNight: boolean | null = null;
       const applyNight = (night: boolean) => {
-        skyLight.color.setHex(night?0x89a9e7:0xe5f4ff);
-        skyLight.groundColor.setHex(night?0x292445:0xb2a3d9);
-        skyLight.intensity=night?.48:.75;
+        skyLight.color.setHex(night?0x89a9e7:0xbce7fa);
+        skyLight.groundColor.setHex(night?0x292445:0x8066ad);
+        skyLight.intensity=night?.48:.5;
         sun.color.setHex(night?0xa8c9ff:0xfffbef);
-        sun.intensity=night?1.35:2.9;
+        sun.intensity=night?1.5:2.7;
         plaza.setNight(night);
         document.documentElement.dataset.sceneMode=night?"night":"day";
         needsRender=true;
@@ -241,6 +261,7 @@ export default function WorldCanvas() {
 
       const timer = new THREE.Timer();
       let lastFrame = 0, lastWanted = -1;
+      let firstFrame = true;
       let labelRotation = Infinity;
       const projected = new THREE.Vector3();
       const render = (now: number) => {
@@ -279,7 +300,12 @@ export default function WorldCanvas() {
           lastShadowUpdate = now;
           lastShadowRotation = rotation;
         }
-        renderer.render(scene, camera);
+        try {
+          renderer.render(scene, camera);
+        } catch {
+          setTextMode(true);
+          return;
+        }
         const moveLabels = needsRender || Math.abs(rotation - labelRotation) > .0001;
         if (moveLabels) plaza.hotspots.forEach((hotspot, index) => {
           const label = labelsRef.current[index];
@@ -289,6 +315,10 @@ export default function WorldCanvas() {
           label.style.top = `${(1 - projected.y) * .5 * host.clientHeight}px`;
         });
         if (moveLabels) labelRotation = rotation;
+        if (firstFrame) {
+          firstFrame = false;
+          setSceneReady(true);
+        }
         lastWanted = wanted;
         needsRender = false;
       };
@@ -299,8 +329,6 @@ export default function WorldCanvas() {
       document.addEventListener("visibilitychange", onVisibility);
       frameId = requestAnimationFrame(render);
       teardown = () => {
-        delete document.documentElement.dataset.world;
-        delete document.documentElement.dataset.sceneMode;
         cameraActionsRef.current=null;
         cancelAnimationFrame(frameId);
         observer.disconnect();
@@ -312,17 +340,31 @@ export default function WorldCanvas() {
         surface.removeEventListener("wheel",onWheel);
         host.removeEventListener("keydown",onKey);
         document.removeEventListener("visibilitychange", onVisibility);
-        registry?.dispose();
-        assets?.dispose();
-        renderer.dispose();
-        renderer.domElement.remove();
       };
     };
-    void start();
-    return () => { disposed = true; teardown?.(); };
-  }, []);
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      setTextMode(true);
+    };
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost);
+    void start().catch(() => { if (!disposed) setTextMode(true); });
+    return () => {
+      disposed = true;
+      download.abort();
+      teardown?.();
+      delete document.documentElement.dataset.world;
+      delete document.documentElement.dataset.sceneMode;
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
+      registry?.dispose();
+      assets?.dispose();
+      renderer.dispose();
+      renderer.domElement.remove();
+    };
+  }, [textMode]);
   return <>
-    <div className={styles.world}>
+    <WorldLoader ready={sceneReady || textMode} download={downloadProgress} preparing={preparingScene} />
+    <noscript><style>{`[data-world-loader] { display: none !important; } [data-world-fallback] { display: block !important; }`}</style></noscript>
+    <div className={styles.world} inert={!sceneReady || textMode}>
       <div ref={hostRef} className={styles.canvasHost} tabIndex={0} role="region" aria-label="Interactive waterfront plaza. Drag to rotate. Arrow keys rotate the camera, plus and minus zoom, zero resets.">
         {PLAZA_STOPS.map((stop, index) => <button key={stop.id} ref={el => { labelsRef.current[index] = el; }}
           className={styles.landmark} onClick={event => {if(event.detail===0 || !dragClickRef.current)choose(stop.id);}} aria-label={`Explore ${stop.label}: ${stop.title}`}>
@@ -342,7 +384,8 @@ export default function WorldCanvas() {
       <nav className={styles.exploreNav} aria-label="Portfolio landmarks">{PLAZA_STOPS.map(stop => <button key={stop.id} onClick={() => choose(stop.id)}>{stop.number} <span>{stop.title}</span></button>)}</nav>
       <p className={styles.hint}>Drag to rotate · Scroll or pinch to zoom · Click a landmark to read</p>
     </div>
-    <PlazaPanel selected={selected} onClose={() => choose(null)} onSelect={choose}/>
+    <PlazaPanel selected={textMode ? null : selected} onClose={() => choose(null)} onSelect={choose}/>
+    <div data-world-fallback hidden={!textMode}>{children}</div>
   </>;
 }
 

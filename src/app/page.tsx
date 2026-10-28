@@ -4,7 +4,7 @@ import MirrorDisclosure from "@/components/MirrorDisclosure";
 import { affiliation, contact, experience, projects } from "@/data/content";
 import { skillGroups } from "@/data/content";
 
-/* A complete reading fallback is available before the interactive plaza loads. */
+/* Keep a complete server-rendered reading version available as a fallback. */
 
 const SECTIONS = [
   { id: "top", label: "Home" },
@@ -19,9 +19,7 @@ export default function Home() {
   const secondary = projects.filter((project) => !project.featured);
 
   return (
-    <>
-      <WorldCanvas />
-
+    <WorldCanvas>
       <div className={styles.mirror}>
         <nav className={styles.nav} aria-label="Sections">
           <p className={styles.wordmark}>Nicolas Villegas-Kirchman</p>
@@ -183,7 +181,7 @@ export default function Home() {
           </div>
         </section>
       </div>
-    </>
+    </WorldCanvas>
   );
 }
 

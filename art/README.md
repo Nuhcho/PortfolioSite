@@ -41,9 +41,19 @@ finite vertices, unit normals, material roles and the stair fitting dimensions.
 
 ## Waterfront rendering
 
-The runtime uses a softly blended `MeshToonMaterial` ramp for the kit and
-procedural solids. Rounded boxes share cached geometry by dimensions and bevel
-radius; foliage, petals, and residents use instanced meshes. `harbor.ts` adds a timber pier joined to the entrance apron,
+The runtime uses three colored cel-shading bands with pixel-width antialiasing
+and contour accents for the kit and procedural solids. Small bevels share
+cached geometry by dimensions and radius; irregular tree crowns, petals, and
+residents use instanced meshes. The quays extend below the sea, with rounded
+shorelines and flat, irregular courtyard paving. `harbor.ts` adds a timber pier joined to the entrance apron,
 boats, pilings, ropes, seagulls, foam rings, and a quantized water shader.
 The ocean and wildlife are excluded from framing calculations, while the pier
 and boats are included. Reduced-motion preference freezes the scenery.
+
+`buildingDesign.ts` adds the gallery's sculpted crown, roof dormers, oculi,
+iron balconies and friezes. The connected facades and roof heights are defined
+in `plaza.ts`, with distinct pink, yellow, blue, jade and violet paint schemes.
+`vesselDesign.ts` lofts closed hull sections into curved bilges, tapered bows,
+transoms and timber decks, then adds sheer rails and cockpit fittings. Sail
+stripes and sun motifs use undeformed cloth coordinates so the paint follows
+the existing wind animation without detached overlay geometry.

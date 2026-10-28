@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { buildLightHalos, buildWaterGlint } from "./lighting";
 import { createSail } from "./sail";
+import { buildVesselHull, addSailingFittings } from "./vesselDesign";
 import { addBoatShadows, type ShadowBox } from "./boatShadows";
 import { batchStatic } from "./batching";
 import type { Registry } from "./theme";
@@ -11,10 +12,10 @@ export function buildShipping(registry: Registry, seaY: number) {
   group.name = "passing-shipping";
   group.userData.excludeFromFraming = true;
   const cream = registry.lit(0xfff5dc);
-  const navy = registry.lit(0x347eae);
-  const coral = registry.lit(0xff8a75);
-  const jade = registry.lit(0x53d3b7);
-  const gold = registry.lit(0xffd264);
+  const navy = registry.lit(0x246eee);
+  const coral = registry.lit(0xff456e);
+  const jade = registry.lit(0x08d6ad);
+  const gold = registry.lit(0xffd025);
   const wood = registry.lit(0xe1ae71);
   const glass = registry.lit(0x3d92b2);
   const deckShadow = registry.lit(0x856c65);
@@ -25,14 +26,6 @@ export function buildShipping(registry: Registry, seaY: number) {
     parent.add(mesh);
     return mesh;
   };
-  const hullShape = new THREE.Shape();
-  hullShape.moveTo(0, 3.7); hullShape.quadraticCurveTo(1.1, 2.8, 1.3, 1.8);
-  hullShape.quadraticCurveTo(1.4, -.6, 1.2, -2.8); hullShape.quadraticCurveTo(1.1, -3.4, .8, -3.4);
-  hullShape.lineTo(-.8, -3.4); hullShape.quadraticCurveTo(-1.1, -3.4, -1.2, -2.8);
-  hullShape.quadraticCurveTo(-1.4, -.6, -1.3, 1.8); hullShape.quadraticCurveTo(-1.1, 2.8, 0, 3.7); hullShape.closePath();
-  const hull = registry.geometry(new THREE.ExtrudeGeometry(hullShape, {
-    depth: .75, bevelEnabled: true, bevelSize: .1, bevelThickness: .1, bevelSegments: 3, curveSegments: 12, steps: 1,
-  }));
   const wakeMaterial = registry.track(new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
     uniforms: { time: { value: 0 }, tint: { value: new THREE.Color(0xd3f5ed) } },
@@ -82,12 +75,8 @@ export function buildShipping(registry: Registry, seaY: number) {
     const boat = new THREE.Group();
     boat.name = `passing-${route.kind}-${index}`;
     boat.scale.setScalar(route.scale);
-    const shell = new THREE.Mesh(hull, route.kind === "gondola" ? navy : [navy, coral, jade][index % 3]);
-    shell.rotation.x = Math.PI / 2;
-    shell.position.y = .75;
-    registry.outline(shell);
-    boat.add(shell);
-    box(boat, wood, [1.9, .12, 5.5], [0, .85, -.25]);
+    boat.add(buildVesselHull(registry,{stern:-3.4,bow:3.7,beam:2.6,deck:.9,depth:1.25,
+      paint:route.kind==="gondola"?coral:[navy,coral,jade][index%3],trim:gold,timber:wood,rail:cream}));
     // Contact shade at the cabin/cargo footprint stays legible at distant views.
     if (route.kind === "cargo" || route.kind === "ferry") {
       box(boat, deckShadow, [1.85, .025, route.kind === "cargo" ? 1.8 : 4.8],
@@ -95,8 +84,11 @@ export function buildShipping(registry: Registry, seaY: number) {
     }
     if (route.kind === "cargo") {
       for (let i = 0; i < 3; i++) {
-        box(boat, [coral, gold, jade][i], [1.8, .9, 1.15], [0, 1.35, -.3 + i * 1.3]);
-        for (const x of [-.6, -.2, .2, .6]) box(boat, cream, [.035, .8, .03], [x, 1.35, .29 + i * 1.3]);
+        box(boat, [coral, gold, jade][i], [1.8, .9, 1.15], [0, 1.35, -.6 + i * 1.2]);
+        for(const side of [-1,1])for(let rib=0;rib<7;rib++)
+          box(boat,[coral,gold,jade][i],[.045,.8,.045],[side*.915,1.35,-1.05+i*1.2+rib*.15]);
+        for (const x of [-.6, -.2, .2, .6]) box(boat, cream, [.035, .8, .03], [x, 1.35, -.01 + i * 1.2]);
+        for(const x of [-.48,.48])box(boat,navy,[.035,.64,.04],[x,1.35,-.003+i*1.2]);
       }
       box(boat, cream, [1.8, 1.5, 1.4], [0, 1.65, -2]);
       for (const side of [-1, 1]) box(boat, glass, [.025, .4, .95], [side * .915, 1.95, -1.95]);
@@ -107,22 +99,37 @@ export function buildShipping(registry: Registry, seaY: number) {
       box(boat, cream, [.36,.65,.04],[-.5,1.44,-1.275]);
       box(boat, gold, [.07,.035,.07],[-.39,1.46,-1.23]);
       for(let vent=0;vent<3;vent++)box(boat,navy,[.22,.035,.025],[.45,2.95+vent*.14,-1.985]);
+      const radar=new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-.65,2.62,-2.1),new THREE.Vector3(-.55,3.25,-2.1),
+        new THREE.Vector3(.55,3.25,-2.1),new THREE.Vector3(.65,2.62,-2.1)]);
+      boat.add(new THREE.Mesh(registry.geometry(new THREE.TubeGeometry(radar,16,.04,8,false)),cream));
+      box(boat,gold,[.8,.07,.12],[0,3.32,-2.1]);
     } else if (route.kind === "ferry") {
       box(boat, cream, [2, 1.3, 4.6], [0, 1.5, -.4]);
       for (const side of [-1, 1]) box(boat, glass, [.025, .5, 3.9], [side * 1.015, 1.7, -.3]);
       box(boat, glass, [1.5, .5, .025], [0, 1.7, 1.915]);
       for (let i = 0; i < 6; i++) box(boat, cream, [2.06, .6, .1], [0, 1.7, -2 + i * .65]);
-      box(boat, gold, [2.2, .2, 4.8], [0, 2.25, -.4]);
+      box(boat, coral, [2.2, .2, 4.8], [0, 2.25, -.4]);
       box(boat, navy, [.45, .8, .45], [0, 2.75, -1.5]);
       box(boat, cream, [.55,.12,.55],[0,3.16,-1.5]);
       for(const z of [-1,.5])for(const side of [-1,1])box(boat,wood,[.18,.25,.75],[side*.65,2.48,z]);
+      for(const side of [-1,1]) {
+        box(boat,cream,[.04,.04,4.4],[side*1.02,2.85,-.4]);
+        for(let post=0;post<9;post++)box(boat,cream,[.025,.45,.025],[side*1.02,2.62,-2.45+post*.5]);
+      }
+      box(boat,navy,[1.1,.55,.9],[0,2.61,1.3]);
+      box(boat,glass,[.95,.28,.03],[0,2.68,1.765]);
+      box(boat,gold,[1.3,.12,1.1],[0,2.94,1.3]);
     } else if (route.kind === "sail") {
-      box(boat, wood, [.13, 6, .13], [0, 3.7, 0]);
+      const mast=new THREE.Mesh(registry.geometry(new THREE.CylinderGeometry(.04,.065,6,12)),wood);
+      mast.position.set(0,3.7,0);boat.add(mast);
+      box(boat,cream,[1.3,.04,.04],[0,4.6,0]);
       cloth.push(
-        createSail(registry, [[0, 1.1, 0], [0, 6.5, 0], [-2.7, 1.1, 0]], registry.lit(0xffedab, { side: THREE.DoubleSide }), 1.2, .8),
-        createSail(registry, [[.15, 1.1, .08], [.15, 5.7, .08], [1.8, 1.1, .08]], registry.lit(0xff9d86, { side: THREE.DoubleSide }), 2.1, .55),
+        createSail(registry, [[0, 1.65, 0], [0, 6.5, 0], [-2.7, 1.65, 0]], navy, 1.2, .8,{color:0xfff1c0,motif:"stripes"}),
+        createSail(registry, [[.15, 1.65, .08], [.15, 5.7, .08], [1.8, 1.65, .08]], gold, 2.1, .55,{color:0xff4578,motif:"sun"}),
       );
-      box(boat, wood, [4.7, .1, .1], [-.45, 1.07, 0]);
+      box(boat, wood, [4.7, .1, .1], [-.45, 1.6, 0]);
+      addSailingFittings(registry,boat,.9,jade);
       const rigging = registry.geometry(new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 6.5, -.12), new THREE.Vector3(0, 1, 3),
         new THREE.Vector3(0, 6.5, -.12), new THREE.Vector3(0, 1, -2.9),
@@ -133,7 +140,6 @@ export function buildShipping(registry: Registry, seaY: number) {
       box(boat, wood, [.12, .12, 5], [1.55, 1.1, -1]);
     }
     // Rigid details are merged with the ship; only cloth stays independently animated.
-    for (let plank = 0; plank < 7; plank++) box(boat, cream, [1.7, .015, .035], [0, .921, -2.35 + plank * .74]);
     if (route.kind === "cargo" || route.kind === "ferry") {
       for (const side of [-1, 1]) {
         box(boat, cream, [.045, .045, 4.6], [side * 1.13, 1.13, -.65]);
@@ -176,7 +182,7 @@ export function buildShipping(registry: Registry, seaY: number) {
     });
     batchStatic(boat, registry, [nightDetails,...cloth.map(sail => sail.mesh)]);
     const occluders: ShadowBox[] = route.kind === "cargo" ? [
-      ...[0, 1, 2].map(i => ({ center: [0, 1.35, -.3 + i * 1.3] as [number, number, number], size: [1.8, .9, 1.15] as [number, number, number] })),
+      ...[0, 1, 2].map(i => ({ center: [0, 1.35, -.6 + i * 1.2] as [number, number, number], size: [1.8, .9, 1.15] as [number, number, number] })),
       { center: [0, 1.65, -2], size: [1.8, 1.5, 1.4] },
       { center: [0, 2.5, -2], size: [2, .15, 1.65] },
       { center: [.45, 2.9, -2.2], size: [.4, 1.1, .4] },

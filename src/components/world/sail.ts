@@ -4,7 +4,8 @@ import type { ShadowSail } from "./boatShadows";
 
 /** Small cloth mesh: mast and boom edges stay pinned while the belly and leech flex.
  * Updating the existing buffers keeps visible geometry and shadow geometry equal. */
-export function createSail(registry: Registry, corners: ShadowSail, material: THREE.MeshToonMaterial, phase = 0, amplitude = .3) {
+export function createSail(registry: Registry, corners: ShadowSail, material: THREE.MeshToonMaterial, phase = 0, amplitude = .3,
+  paint?: { color: number; motif: "stripes" | "sun" }) {
   const divisions = 12;
   const weights: [number, number, number][] = [];
   const lookup: number[][] = [];
@@ -28,6 +29,20 @@ export function createSail(registry: Registry, corners: ShadowSail, material: TH
   // Hard toon thresholds pop between light bands as cloth normals move.
   // Smooth diffuse lighting keeps both faces of the curved fabric continuous.
   const cloth = registry.track(new THREE.MeshLambertMaterial({ color: material.color, side: THREE.DoubleSide }));
+  if(paint) {
+    geometry.setAttribute("sailCoord",new THREE.Float32BufferAttribute(weights.flatMap(([,b,c])=>[c,b]),2));
+    cloth.onBeforeCompile=shader=>{
+      shader.uniforms.sailPigment={value:new THREE.Color(paint.color)};
+      shader.vertexShader=`attribute vec2 sailCoord;varying vec2 sailPaint;\n${shader.vertexShader}`
+        .replace("#include <begin_vertex>","#include <begin_vertex>\nsailPaint=sailCoord;");
+      const pattern=paint.motif==="stripes" ?
+        "float wave=sin((sailPaint.y+sailPaint.x*.13)*31.4159);float aa=max(fwidth(wave),.01);float motif=smoothstep(-aa,aa,wave);" :
+        "vec2 sun=(sailPaint-vec2(.28,.32))*vec2(1.25,1.);float r=length(sun);float ray=cos(atan(sun.y,sun.x)*10.)*.022;float aa=max(fwidth(r),.002);float motif=1.-smoothstep(.15+ray-aa,.15+ray+aa,r);";
+      shader.fragmentShader=`uniform vec3 sailPigment;varying vec2 sailPaint;\n${shader.fragmentShader}`
+        .replace("#include <color_fragment>",`#include <color_fragment>\n${pattern}\ndiffuseColor.rgb=mix(diffuseColor.rgb,sailPigment,motif);`);
+    };
+    cloth.customProgramCacheKey=()=>`painted-sail-${paint.motif}`;
+  }
   const mesh = new THREE.Mesh(geometry, cloth);
   mesh.name = "animated-sail";
   mesh.castShadow = true;
