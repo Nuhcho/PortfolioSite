@@ -6,8 +6,11 @@ import { batchStatic } from "./batching";
 import { buildShipping } from "./shipping";
 import { buildVesselHull, addSailingFittings } from "./vesselDesign";
 import { seeded } from "./architecture";
-import { COLOR, type Registry } from "./theme";
+import { COLOR, SEA_COLOR, type Registry } from "./theme";
 import { SCREEN_RIGHT, SCREEN_UP, screenBox } from "./layout";
+import { buildCoastline } from "./coastline";
+import { buildPort } from "./port";
+import { PORT_FOCUS } from "./harborLayout";
 
 /** A graphic coastal setting. The sea and wildlife are excluded from framing;
  * the attached pier and boats are measured with the monument in wide views. */
@@ -16,14 +19,18 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
   group.name = "harbor";
   group.rotation.y = Math.PI / 4;
   const seaY = floor - 3.6;
+  const coastline = buildCoastline(registry,seaY,floor);
   const sea = registry.track(new THREE.ShaderMaterial({
     uniforms: {
       time: { value: 0 },
       night: { value: 0 },
-      water: { value: new THREE.Color(0x199fa9) },
-      deep: { value: new THREE.Color(0x178a9f) },
-      light: { value: new THREE.Color(0x28b9b4) },
-      foam: { value: new THREE.Color(0xc5eae3) },
+      water: { value: new THREE.Color(SEA_COLOR.day.water) },
+      deep: { value: new THREE.Color(SEA_COLOR.day.deep) },
+      light: { value: new THREE.Color(SEA_COLOR.day.light) },
+      shallow: { value: new THREE.Color(SEA_COLOR.day.shallow) },
+      foam: { value: new THREE.Color(SEA_COLOR.day.foam) },
+      waterDepth: { value: coastline.waterDepth },
+      depthBounds: { value: coastline.depthBounds },
     },
     vertexShader: `
       varying vec2 seaPosition;
@@ -34,7 +41,9 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
     `,
     fragmentShader: `
       uniform float time,night;
-      uniform vec3 water, deep, light, foam;
+      uniform vec3 water, deep, light, shallow, foam;
+      uniform sampler2D waterDepth;
+      uniform vec4 depthBounds;
       varying vec2 seaPosition;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main() {
@@ -46,6 +55,16 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
         color = mix(color, light, smoothstep(1.25-swellAA,1.25+swellAA,swell));
         float smallWaves = sin(p.x*.48+p.y*.31+time*.7)*sin(p.y*.38-time*.45);
         color = mix(color, light, smoothstep(.65, 1., smallWaves)*.12);
+        // Water colors follow the actual beach and seabed profile.
+        vec2 shorePosition = vec2(p.x,-p.y);
+        vec2 depthUV=(shorePosition-depthBounds.xy)/depthBounds.zw;
+        float mapped=step(0.,depthUV.x)*step(depthUV.x,1.)*step(0.,depthUV.y)*step(depthUV.y,1.);
+        float depth=mix(8.,texture2D(waterDepth,clamp(depthUV,0.,1.)).r*8.,mapped);
+        float shoal=1.-smoothstep(0.,6.5,depth);
+        // Let the offshore cel patterns dissolve into quieter coastal water.
+        vec3 tidalWater=mix(mix(shallow,water,.25),foam,.08*(1.-smoothstep(0.,1.1,depth)));
+        vec3 coastalWater=mix(tidalWater,water,smoothstep(.7,6.5,depth));
+        color = mix(color, coastalWater, shoal*.95);
         // Advect the entire highlight field with a visible, gently varying current.
         vec2 current = vec2(time*.8 + sin(time*.4 + p.y*.08)*.3, -time*.32);
         vec2 grid = vec2((p.x-current.x)*.12, (p.y-current.y)*.26);
@@ -56,9 +75,11 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
         float ripple = step(.72, seed)
           * (1.-smoothstep(.12 + seed*.08-aa.x, .12 + seed*.08+aa.x, abs(uv.x-.5 + sin(time*1.1+seed*6.28)*.06)))
           * (1.-smoothstep(max(0.,.013-aa.y), .013+aa.y, abs(uv.y-.5+sin(time*1.35+seed*6.28)*.065)));
-        color = mix(color, foam, ripple * .8);
+        color = mix(color, foam, ripple * mix(.18,.8,smoothstep(.2,2.5,depth)));
         color += light*pow(max(0.,1.-abs(sin(p.x*.025+p.y*.018))),14.)*night*.12;
-        gl_FragColor = vec4(color, 1.0);
+        // Depth pigment supplies the seabed tint without exposing the outer
+        // mesh silhouette through the water at oblique camera angles.
+        gl_FragColor = vec4(color, 1.);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }
@@ -66,6 +87,7 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
   }));
   const ocean = new THREE.Mesh(registry.geometry(new THREE.PlaneGeometry(700, 700)), sea);
   ocean.name = "cel-shaded-water";
+  ocean.renderOrder = -1;
   ocean.rotation.x = -Math.PI / 2;
   ocean.position.y = seaY;
   ocean.userData.excludeFromFraming = true;
@@ -86,9 +108,9 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
 
   const wood = registry.lit(0xe4ae70);
   const woodLight = registry.lit(0xffdba1);
-  const timber = registry.lit(0x6b7876);
+  const timber = registry.lit(0x756343);
   const rope = registry.lit(0xe5d3a6);
-  const navy = registry.lit(0x367fa3);
+  const navy = registry.lit(COLOR.opening);
   const ivory = registry.lit(COLOR.ivory, { side: THREE.DoubleSide });
   const coral = registry.lit(COLOR.madder, { side: THREE.DoubleSide });
   const brass = registry.lit(COLOR.saffron);
@@ -173,9 +195,9 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
   }
 
   const boats: { group: THREE.Group; x: number; z: number; yaw: number; phase: number; updateShadows: () => void; cloth: ReturnType<typeof createSail>[]; nightLights: THREE.Group; reflection: ReturnType<typeof buildWaterGlint> }[] = [];
-  const hullPaint=[registry.lit(0xff3985),registry.lit(0x1588f5)];
-  const sailPaint=[registry.lit(0xff4e9a),registry.lit(0x168bf5)];
-  const goldenSail=registry.lit(0xffc92d);
+  const hullPaint=[registry.lit(COLOR.madder),registry.lit(COLOR.jadeDeep)];
+  const sailPaint=[registry.lit(COLOR.ivory),registry.lit(COLOR.ivory)];
+  const goldenSail=registry.lit(COLOR.saffron);
   // Leave clearance for the bow and its rocking motion beside the crosspiece.
   [[6.3, end - 6.4, -.2, 1], [-10, end + 5.7, .45, .78]].forEach(([x, z, yaw, scale], i) => {
     const boat = new THREE.Group();
@@ -189,8 +211,8 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
     addBox(boat,brass,[1.4,.045,.055],[0,3.7,-.1]);
     addBox(boat, woodLight, [3.5, .12, .12], [-.55, .85, 0]);
     const cloth = [
-      createSail(registry, [[0, 1, 0], [0, 5.3, 0], [-2.8, 1, 0]], sailPaint[i], i * 1.7, .8,{color:0xfff4cc,motif:"stripes"}),
-      createSail(registry, [[.18, 1, .08], [.18, 4.4, .08], [1.7, 1, .08]], goldenSail, i * 1.7 + .6, .55,{color:i===0?0xff5960:0x147de2,motif:"sun"}),
+      createSail(registry, [[0, 1, 0], [0, 5.3, 0], [-2.8, 1, 0]], sailPaint[i], i * 1.7, .8,{color:i===0?COLOR.madder:COLOR.jadeDeep,motif:"stripes"}),
+      createSail(registry, [[.18, 1, .08], [.18, 4.4, .08], [1.7, 1, .08]], goldenSail, i * 1.7 + .6, .55,{color:i===0?COLOR.madder:COLOR.opening,motif:"sun"}),
       createSail(registry, [[.05, 4.85, .1], [.05, 5.25, .1], [.95, 5.05, .1]], coral, i + 2, .18),
     ];
     cloth.forEach(sail => boat.add(sail.mesh));
@@ -294,26 +316,29 @@ export function buildHarbor(registry: Registry, floor: number, entrance: number)
   dockHalos.visible=false;group.add(dockHalos);
   const shipping = buildShipping(registry, seaY);
   group.add(shipping.group);
+  const port = buildPort(registry,floor,seaY);
+  group.add(coastline.group,port.group);
 
-  batchStatic(group, registry, [ocean, waterShadow, shipping.group,
+  batchStatic(group, registry, [ocean, waterShadow, shipping.group, coastline.group, port.group,
     ...boats.map(boat => boat.group), ...birds.map(bird => bird.group)]);
 
   const birdWorld = new THREE.Vector3();
   return {
     group,
+    portFocus: new THREE.Vector3(...PORT_FOCUS).applyAxisAngle(new THREE.Vector3(0,1,0),Math.PI/4),
     setNight: (night: boolean) => {
       sea.uniforms.night.value=Number(night);
       dockLamp.emissiveIntensity=night?2.8:0;shipping.setNight(night);dockHalos.visible=night;
+      coastline.setNight(night);port.setNight(night);
       boats.forEach(boat=>{boat.nightLights.visible=night;boat.reflection.mesh.visible=night;});
-      sea.uniforms.water.value.setHex(night?0x173e5b:0x199fa9);
-      sea.uniforms.deep.value.setHex(night?0x102840:0x178a9f);
-      sea.uniforms.light.value.setHex(night?0x245c75:0x28b9b4);
-      sea.uniforms.foam.value.setHex(night?0x709ab2:0xc5eae3);
+      const colors = night ? SEA_COLOR.night : SEA_COLOR.day;
+      for (const key of ["water", "deep", "light", "shallow", "foam"] as const) sea.uniforms[key].value.setHex(colors[key]);
     },
     update: (elapsed: number, reduce: boolean, readingFace?: THREE.Object3D) => {
       const t = reduce ? 0 : elapsed;
       sea.uniforms.time.value = t;
       shipping.update(elapsed, reduce);
+      coastline.update(elapsed,reduce);port.update(elapsed,reduce);
       boats.forEach((boat) => {
         boat.group.position.y = seaY + .7 + Math.sin(t * .8 + boat.phase) * .1;
         boat.group.rotation.z = Math.sin(t * .55 + boat.phase) * .025;

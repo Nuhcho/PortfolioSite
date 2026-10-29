@@ -9,57 +9,48 @@ import type { ArchitectureAssets, ModelMaterials, ModelName } from "./models";
    rather than zooming out until the type goes to nothing. */
 export const UNIT_PX = 54;
 
-/* Sunlit limestone, jewel-coloured masonry and deep violet recesses.
-   Reading faces use pale versions of the same stone, so the architecture
-   stays colourful without reducing the contrast of the portfolio text. */
+/* Wind Waker-inspired coastal paint: cream stone, coral tiles, leaf greens,
+   and cool blue shadows. Reading surfaces retain dark ink on pale stone. */
 export const COLOR = {
   // --- solids: the mass of the building ---
-  ivory: 0xffedbf,
-  ivoryDeep: 0xd6b778,
-  ivoryShadow: 0xac9979,
-  rose: 0xec8a7f,
-  roseDeep: 0xd0645f,
-  teal: 0x9bceb8,
-  tealDeep: 0x67a597,
-  lilac: 0xb7a6d9,
-  lilacDeep: 0x8a78bd,
-  sand: 0xecc374,
-  sandDeep: 0xd9a441,
+  ivory: 0xfff1c9,
+  ivoryDeep: 0xd8bc83,
+  ivoryShadow: 0x9d9c75,
+  rose: 0xf1b17d,
+  roseDeep: 0xc88254,
+  teal: 0x8fcfae,
+  tealDeep: 0x38946b,
+  lilac: 0x8bbcb2,
+  lilacDeep: 0x447f81,
+  sand: 0xf5d58b,
+  sandDeep: 0xc89d52,
 
-  /* The architecture's own stones: the games' pastels. Each comes as a pair
-     a clear step apart in value — the stone and its shadowed course — so a
-     flank still parts cleanly from the cream top beside it and the edge
-     between two faces stays sharp however soft the colours are. One muted
-     plum serves every opening, the darkest value on the site, so a window
-     is a hole rather than a smudge without punching a black spot in a
-     pastel world. */
-  jade: 0x63bbb2,
-  jadeDeep: 0x2a8188,
-  iris: 0x8eafbf,
-  irisDeep: 0x547f99,
-  saffron: 0xf3b83f,
-  saffronDeep: 0xc1934b,
-  madder: 0xef7059,
-  madderDeep: 0xba675c,
-  opening: 0x284c61,
+  // Paired pigments keep lit and shaded faces distinct; openings use navy.
+  jade: 0x66b84d,
+  jadeDeep: 0x29824b,
+  iris: 0x55a9c6,
+  irisDeep: 0x26728e,
+  saffron: 0xffcf54,
+  saffronDeep: 0xd49135,
+  madder: 0xe75a3b,
+  madderDeep: 0xb63f2e,
+  opening: 0x173c60,
 
-  /* The island itself: a lawn ring round a paved field, on lilac rock. Green
-     is the one hue the architecture never uses, so the ground reads as ground
-     however densely it is built on. */
-  lawn: 0x9acb9b,
-  lawnDeep: 0x509d84,
-  rock: 0x416e89,
-  rockDeep: 0x294d70,
+  // Lime foliage and weathered, moss-tinted quay stone.
+  lawn: 0x92cb46,
+  lawnDeep: 0x3d9248,
+  rock: 0xaa9a71,
+  rockDeep: 0x667d73,
 
-  /** the one saturated note in the world, reserved for what can be operated */
-  accent: 0xdf836d,
-  sun: 0xecc374,
+  // Coral accents and sunny gold highlights.
+  accent: 0xe75a3b,
+  sun: 0xffcf54,
 
   // --- pales: the faces an inscription is cut into ---
   paleIvory: 0xfff4dc,
   paleRose: 0xf9e1d5,
-  paleTeal: 0xe2eee3,
-  paleLilac: 0xe0eaf1,
+  paleTeal: 0xcce5a4,
+  paleLilac: 0xd8eae0,
   /** the one face cut below its surroundings */
   sunken: 0xefe3c0,
   paleSun: 0xffe7ac,
@@ -70,6 +61,12 @@ export const COLOR = {
   inkMuted: 0x5c5354,
   paper: 0xfefefe,
 };
+
+/** The ocean and its adjoining CSS background use the same day/night paints. */
+export const SEA_COLOR = {
+  day: { water: 0x166bc4, deep: 0x1050a4, light: 0x278bdb, shallow: 0x20bfb6, foam: 0xf2fff1 },
+  night: { water: 0x102d60, deep: 0x091d42, light: 0x205085, shallow: 0x1b667d, foam: 0x91bad4 },
+} as const;
 
 /* The ink tier, as CSS strings. An inscription is drawn unlit, so these are
    the exact values the contrast ratios were measured at — the light never
@@ -85,18 +82,13 @@ export const INK = {
   paper: "#fefefe",
 };
 
-/* The skies the journey passes through, one pair per folly, top of the
-   frame to the bottom. All pastel, the way the games' skies are: peach into
-   rose at the start, through periwinkle and lavender, to sea-glass at the
-   end. Light enough that charcoal ink and the cream stone both hold against
-   every one of them. The camera blends between neighbours as it turns, so
-   the sky changes with the site rather than cutting. */
+/* Sky gradients for views that expose the horizon above the ocean. */
 export const SKIES: readonly (readonly [string, string])[] = [
-  ["#c6e6e6", "#77b7c7"],
-  ["#c2e2e5", "#70adc1"],
-  ["#c5e1e4", "#7fb4c3"],
-  ["#c6e5df", "#7ebcbf"],
-  ["#d4e7db", "#80bfbf"],
+  ["#319be2", "#b4e9e7"],
+  ["#379edb", "#c8efdd"],
+  ["#398ed2", "#bfe3e8"],
+  ["#38a7df", "#c4ecde"],
+  ["#429dd9", "#d4efdd"],
 ];
 
 /* Tracking, in em, for the two places type is set in capitals — the same
@@ -144,7 +136,7 @@ export type Disposable = { dispose: () => void };
 export class Registry {
   private items: Disposable[] = [];
   readonly lanternNight={value:0};
-  readonly lanternPositions={value:Array.from({length:5},()=>new THREE.Vector3())};
+  readonly lanternPositions={value:Array.from({length:9},()=>new THREE.Vector3())};
   private edgeMaterial?: THREE.LineBasicMaterial;
   private edges = new WeakMap<THREE.BufferGeometry, THREE.EdgesGeometry>();
   private roundedBoxes = new Map<string, THREE.BufferGeometry>();
@@ -182,7 +174,7 @@ export class Registry {
     material.onBeforeCompile = (shader) => {
       shader.uniforms.lanternNight=this.lanternNight;
       shader.uniforms.lanternPositions=this.lanternPositions;
-      shader.vertexShader=`uniform float lanternNight;uniform vec3 lanternPositions[5];varying float lanternFill;
+      shader.vertexShader=`uniform float lanternNight;uniform vec3 lanternPositions[9];varying float lanternFill;
 ${shader.vertexShader}`
         .replace("#include <project_vertex>", `#include <project_vertex>
           vec4 lanternVertex=vec4(transformed,1.);
@@ -192,7 +184,7 @@ ${shader.vertexShader}`
           vec3 lanternWorld=(modelMatrix*lanternVertex).xyz;
           lanternFill=0.;
           if(lanternNight>.5){
-            for(int i=0;i<5;i++){
+            for(int i=0;i<9;i++){
               vec3 delta=lanternPositions[i]-lanternWorld;
               float falloff=pow(max(0.,1.-length(delta)/8.),2.);
               vec3 toward=normalize(mat3(viewMatrix)*delta);
@@ -203,7 +195,7 @@ ${shader.vertexShader}`
       shader.fragmentShader=`varying float lanternFill;
 ${shader.fragmentShader}`
         .replace("#include <opaque_fragment>",`float paintedLuma = dot(outgoingLight, vec3(.2126,.7152,.0722));
-outgoingLight = max(vec3(0.), mix(vec3(paintedLuma), outgoingLight, 1.12));
+outgoingLight = max(vec3(0.), mix(vec3(paintedLuma), outgoingLight, 1.06));
 float inkFacing = abs(dot(normalize(normal), normalize(vViewPosition)));
 float inkWidth = max(fwidth(inkFacing) * 1.25, .012);
 float inkEdge = 1. - smoothstep(inkWidth, inkWidth * 2., inkFacing);
@@ -214,12 +206,12 @@ outgoingLight += diffuseColor.rgb * vec3(1.,.54,.22) * min(lanternFill,.8) * .95
         vec3 getGradientIrradiance(vec3 normal, vec3 lightDirection) {
           float facing = dot(normal, lightDirection);
           float aa = max(fwidth(facing) * .75, .006);
-          vec3 shade = mix(vec3(.24,.29,.52), vec3(.60,.63,.84), smoothstep(.15-aa,.15+aa,facing));
-          return mix(shade, vec3(1.,.96,.87), smoothstep(.65-aa,.65+aa,facing));
+          vec3 shade = mix(vec3(.25,.39,.50), vec3(.61,.74,.76), smoothstep(.15-aa,.15+aa,facing));
+          return mix(shade, vec3(1.,.98,.90), smoothstep(.65-aa,.65+aa,facing));
         }
       `);
     };
-    material.customProgramCacheKey = () => "coastal-painted-cel-ink-lanterns-v6";
+    material.customProgramCacheKey = () => "coastal-painted-cel-ink-lanterns-v8";
     return material;
   }
 

@@ -4,18 +4,18 @@ import { createSail } from "./sail";
 import { buildVesselHull, addSailingFittings } from "./vesselDesign";
 import { addBoatShadows, type ShadowBox } from "./boatShadows";
 import { batchStatic } from "./batching";
-import type { Registry } from "./theme";
+import { COLOR, SEA_COLOR, type Registry } from "./theme";
 
 /** Traffic routes extend well beyond the viewport; wrapping happens offshore. */
 export function buildShipping(registry: Registry, seaY: number) {
   const group = new THREE.Group();
   group.name = "passing-shipping";
   group.userData.excludeFromFraming = true;
-  const cream = registry.lit(0xfff5dc);
-  const navy = registry.lit(0x246eee);
-  const coral = registry.lit(0xff456e);
-  const jade = registry.lit(0x08d6ad);
-  const gold = registry.lit(0xffd025);
+  const cream = registry.lit(COLOR.ivory);
+  const navy = registry.lit(COLOR.opening);
+  const coral = registry.lit(COLOR.madder);
+  const jade = registry.lit(COLOR.jadeDeep);
+  const gold = registry.lit(COLOR.saffron);
   const wood = registry.lit(0xe1ae71);
   const glass = registry.lit(0x3d92b2);
   const deckShadow = registry.lit(0x856c65);
@@ -28,7 +28,7 @@ export function buildShipping(registry: Registry, seaY: number) {
   };
   const wakeMaterial = registry.track(new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    uniforms: { time: { value: 0 }, tint: { value: new THREE.Color(0xd3f5ed) } },
+    uniforms: { time: { value: 0 }, tint: { value: new THREE.Color(SEA_COLOR.day.foam) } },
     vertexShader: `varying vec2 waterUV; void main(){ waterUV=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader: `
       uniform float time; uniform vec3 tint; varying vec2 waterUV;
@@ -126,7 +126,7 @@ export function buildShipping(registry: Registry, seaY: number) {
       box(boat,cream,[1.3,.04,.04],[0,4.6,0]);
       cloth.push(
         createSail(registry, [[0, 1.65, 0], [0, 6.5, 0], [-2.7, 1.65, 0]], navy, 1.2, .8,{color:0xfff1c0,motif:"stripes"}),
-        createSail(registry, [[.15, 1.65, .08], [.15, 5.7, .08], [1.8, 1.65, .08]], gold, 2.1, .55,{color:0xff4578,motif:"sun"}),
+        createSail(registry, [[.15, 1.65, .08], [.15, 5.7, .08], [1.8, 1.65, .08]], gold, 2.1, .55,{color:COLOR.madder,motif:"sun"}),
       );
       box(boat, wood, [4.7, .1, .1], [-.45, 1.6, 0]);
       addSailingFittings(registry,boat,.9,jade);

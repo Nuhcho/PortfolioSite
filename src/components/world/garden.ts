@@ -9,7 +9,7 @@ export function buildGarden(registry: Registry, trees: At[], pots: At[], boxes: 
   group.name = "wind-garden";
   const time = { value: 0 };
   const stem: Piece[] = [], crowns: Piece[] = [], blades: Piece[] = [], flowers: Piece[] = [], petals: Piece[] = [];
-  const greens = [0x329f72, 0x6ac576, 0x228c70, 0x88cd72];
+  const greens = [0x4aab36, 0x8dcc3f, 0x278c46, 0xb2d94d];
   trees.forEach(([x, y, z], i) => {
     stem.push({ at: [x, y + 1, z], scale: [.15, 2, .15], color: 0xb57f55 });
     crowns.push({ at: [x, y + 2.3, z], scale: [i % 2 ? 1.3 : 1.05, i % 2 ? 1.25 : 1.5, 1.0],

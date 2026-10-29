@@ -14,8 +14,8 @@ export function buildFountainWater(registry: Registry) {
         float flow=sin(p.x*3.+time*.8)*sin(p.y*4.-time*.6);
         float splash=0.;for(int i=0;i<4;i++){float a=float(i)*1.570796;vec2 impact=vec2(cos(a),sin(a))*2.15;float d=length(p-impact);
           float ripple=sin(d*16.-time*5.-float(i)*.8);splash+=smoothstep(.65,.98,ripple)*(1.-smoothstep(.08,.85,d));}
-        vec3 col=mix(vec3(.10,.57,.64),vec3(.22,.70,.73),flow*.25+.5);
-        col=mix(col,vec3(.72,.94,.89),clamp(splash*.32+smoothstep(.85,1.,flow)*.08,0.,.45));
+        vec3 col=mix(vec3(.02,.43,.65),vec3(.05,.73,.70),flow*.25+.5);
+        col=mix(col,vec3(.91,.99,.92),clamp(splash*.32+smoothstep(.85,1.,flow)*.08,0.,.45));
         col*=mix(vec3(1.),vec3(.38,.62,.82),night);
         gl_FragColor=vec4(col,1.);
         #include <colorspace_fragment>

@@ -8,7 +8,7 @@
   padding: clamp(24px, 5vh, 52px) 24px;
   overflow-y: auto;
   color: #fff4d9;
-  background: radial-gradient(ellipse at 50% 42%, #267d87 0%, #155767 55%, #103f53 100%);
+  background: radial-gradient(ellipse at 50% 42%, #287fc8 0%, #165da8 55%, #103b79 100%);
   opacity: 1;
   visibility: visible;
   transition: opacity .65s ease, visibility 0s .65s;
@@ -28,11 +28,11 @@
 .status { min-height: 3em; margin: 0 auto; max-width: 310px; font-size: .85rem; line-height: 1.6; color: #cee6e2; text-wrap: pretty; }
 .progress { width: 180px; margin: 20px auto 24px; }
 .track { height: 3px; overflow: hidden; background: #c2efec24; border-radius: 3px; }
-.track span { display: block; width: 100%; height: 100%; background: #ffd27b; border-radius: inherit; transform-origin: left; transition: transform .25s ease; }
+.track span { display: block; width: 100%; height: 100%; background: #ffcf54; border-radius: inherit; transform-origin: left; transition: transform .25s ease; }
 .track[data-indeterminate="true"] span { width: 40%; animation: passage 1.5s ease-in-out infinite; }
 .progressValue { display: block; margin-top: 10px; color: #cee6e2; font-size: .7rem; font-variant-numeric: tabular-nums; }
 .footer { font-size: .65rem; letter-spacing: .06em; text-align: center; color: #b3d6d4; }
-.footer span { margin: 0 10px; color: #ffd27b; }
+.footer span { margin: 0 10px; color: #ffcf54; }
 
 @keyframes bob { 0%, 100% { transform: translateY(2px) rotate(-3deg); } 50% { transform: translateY(-5px) rotate(3deg); } }
 @keyframes drift { 0%, 100% { transform: translateX(-10px); } 50% { transform: translateX(5px); } }

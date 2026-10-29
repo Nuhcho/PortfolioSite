@@ -22,11 +22,12 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
   const [sceneReady, setSceneReady] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({ loaded: 0, total: null });
   const [preparingScene, setPreparingScene] = useState(false);
+  const [cameraAtPort, setCameraAtPort] = useState(false);
   const [textMode, setTextMode] = useState(false);
   const [night, setNight] = useState(false);
   const nightRef = useRef(false);
   const dragClickRef = useRef(false);
-  const cameraActionsRef = useRef<((action: "in" | "out" | "reset" | "left" | "right") => void) | null>(null);
+  const cameraActionsRef = useRef<((action: "in" | "out" | "reset" | "left" | "right" | "port") => void) | null>(null);
   const toggleNight = () => { nightRef.current = !nightRef.current; setNight(nightRef.current); };
   const [selected, setSelected] = useState<PlazaStop | null>(null);
   const selectedRef = useRef<PlazaStop | null>(null);
@@ -69,9 +70,9 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
       await checkpoint();
       registry = new Registry(assets);
       const scene = new THREE.Scene();
-      const skyLight = new THREE.HemisphereLight(0xbce7fa, 0x8066ad, .5);
+      const skyLight = new THREE.HemisphereLight(0xa5d9ff, 0x779666, .5);
       scene.add(skyLight);
-      const sun = new THREE.DirectionalLight(0xfffbef, 2.7);
+      const sun = new THREE.DirectionalLight(0xfff9df, 2.7);
       sun.position.set(25, 45, 18);
       sun.castShadow = true;
       const shadowSize = innerWidth > 900 ? 4096 : 2048;
@@ -126,17 +127,21 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
       const initialYaw=Math.atan2(ISO_DIR.x,ISO_DIR.z),initialPolar=Math.acos(ISO_DIR.y);
       const orbit=new PlazaOrbit(initialYaw,initialPolar);
       const orbitDirection=new THREE.Vector3();
-      const baseTarget=new THREE.Vector3(-2,1.5,7).applyAxisAngle(Y_AXIS,Math.PI/4+plaza.poses[0]);
       const framingTarget=plaza.centres[0].clone().applyAxisAngle(Y_AXIS,plaza.poses[0]);
+      const physicalCenter=new THREE.Vector3(9,1.5,12).applyAxisAngle(Y_AXIS,Math.PI/4+plaza.poses[0]);
+      const baseTarget=framingTarget.clone().addScaledVector(ISO_DIR,physicalCenter.dot(ISO_DIR))
+        .addScaledVector(SCREEN_RIGHT,-plaza.width*.07);
+      const portTarget=plaza.portFocus.clone().applyAxisAngle(Y_AXIS,plaza.poses[0]);
+      const focusCurrent=baseTarget.clone(),focusGoal=baseTarget.clone();
       const framingDelta=baseTarget.clone().sub(framingTarget);
       const framingWidth=plaza.width+2*Math.abs(framingDelta.dot(SCREEN_RIGHT));
       const framingHeight=plaza.height+2*Math.abs(framingDelta.dot(SCREEN_UP));
       let lastNight: boolean | null = null;
       const applyNight = (night: boolean) => {
-        skyLight.color.setHex(night?0x89a9e7:0xbce7fa);
-        skyLight.groundColor.setHex(night?0x292445:0x8066ad);
+        skyLight.color.setHex(night?0x7b9fe5:0xa5d9ff);
+        skyLight.groundColor.setHex(night?0x203d53:0x779666);
         skyLight.intensity=night?.48:.5;
-        sun.color.setHex(night?0xa8c9ff:0xfffbef);
+        sun.color.setHex(night?0xa8d4ff:0xfff9df);
         sun.intensity=night?1.5:2.7;
         plaza.setNight(night);
         document.documentElement.dataset.sceneMode=night?"night":"day";
@@ -213,8 +218,9 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
         orbit.zoomBy(factor);needsRender=true;
       };
       const onWheel = (event: WheelEvent) => {event.preventDefault();zoom(Math.exp(-THREE.MathUtils.clamp(event.deltaY,-150,150)*.0015));};
-      const action = (action: "in" | "out" | "reset" | "left" | "right") => {
-        if(action==="reset"){orbit.reset();camera.zoom=1;camera.updateProjectionMatrix();needsRender=true;}
+      const action = (action: "in" | "out" | "reset" | "left" | "right" | "port") => {
+        if(action==="reset"){setCameraAtPort(false);focusGoal.copy(baseTarget);orbit.reset();camera.zoom=1;camera.updateProjectionMatrix();needsRender=true;}
+        else if(action==="port"){setCameraAtPort(true);focusGoal.copy(portTarget);orbit.setZoom(1.65);needsRender=true;}
         else if(action==="left"||action==="right"){orbit.rotate(action==="left"?.18:-.18);needsRender=true;}
         else zoom(action==="in"?1.2:1/1.2);
       };
@@ -290,7 +296,9 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
         const cameraChanged=orbit.step(frameTime/1000,reduce);
         if(cameraChanged)needsRender=true;
         if(Math.abs(camera.zoom-orbit.zoom)>.000001){camera.zoom=orbit.zoom;camera.updateProjectionMatrix();}
-        target.copy(baseTarget);
+        const focusChanged=focusCurrent.distanceToSquared(focusGoal)>.000001;
+        if(focusChanged){focusCurrent.lerp(focusGoal,reduce?1:1-Math.exp(-8*frameTime/1000));needsRender=true;}
+        target.copy(focusCurrent);
         orbitDirection.setFromSphericalCoords(140,orbit.polar,orbit.yaw);
         camera.position.copy(target).add(orbitDirection);
         camera.lookAt(target);
@@ -364,10 +372,10 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
   return <>
     <WorldLoader ready={sceneReady || textMode} download={downloadProgress} preparing={preparingScene} />
     <noscript><style>{`[data-world-loader] { display: none !important; } [data-world-fallback] { display: block !important; }`}</style></noscript>
-    <div className={styles.world} inert={!sceneReady || textMode}>
-      <div ref={hostRef} className={styles.canvasHost} tabIndex={0} role="region" aria-label="Interactive waterfront plaza. Drag to rotate. Arrow keys rotate the camera, plus and minus zoom, zero resets.">
+    <div className={styles.world} data-port-view={cameraAtPort} inert={!sceneReady || textMode}>
+      <div ref={hostRef} className={styles.canvasHost} tabIndex={0} role="region" aria-label="Interactive waterfront and working port. Drag to rotate. Arrow keys rotate the camera, plus and minus zoom, zero resets. Choose Port view to explore the harbor.">
         {PLAZA_STOPS.map((stop, index) => <button key={stop.id} ref={el => { labelsRef.current[index] = el; }}
-          className={styles.landmark} onClick={event => {if(event.detail===0 || !dragClickRef.current)choose(stop.id);}} aria-label={`Explore ${stop.label}: ${stop.title}`}>
+          className={styles.landmark} hidden={cameraAtPort} onClick={event => {if(event.detail===0 || !dragClickRef.current)choose(stop.id);}} aria-label={`Explore ${stop.label}: ${stop.title}`}>
           <span>{stop.number}</span><strong>{stop.label}</strong><i>+</i>
         </button>)}
       </div>
@@ -378,9 +386,11 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
         <button type="button" onClick={()=>cameraActionsRef.current?.("right")} aria-label="Rotate right">↷</button>
         <button type="button" onClick={()=>cameraActionsRef.current?.("in")} aria-label="Zoom in">+</button>
         <button type="button" onClick={()=>cameraActionsRef.current?.("out")} aria-label="Zoom out">−</button>
+        <button type="button" onClick={()=>cameraActionsRef.current?.(cameraAtPort?"reset":"port")}
+          aria-label={cameraAtPort?"Return to whole waterfront":"Explore the port"}>{cameraAtPort?"Whole view":"Port view"}</button>
         <button type="button" onClick={()=>cameraActionsRef.current?.("reset")} aria-label="Reset camera">Reset view</button>
       </div>
-      <header className={styles.intro}><p className={styles.eyebrow}>Nicolas Villegas-Kirchman</p><h1>A little plaza.{" "}<br/>A world of work.</h1><p>Applied ML & software engineering.{" "}<br/>Choose a landmark to explore.</p></header>
+      <header className={styles.intro} hidden={cameraAtPort}><p className={styles.eyebrow}>Nicolas Villegas-Kirchman</p><h1>A little plaza.{" "}<br/>A world of work.</h1><p>Applied ML & software engineering.{" "}<br/>Choose a landmark to explore.</p></header>
       <nav className={styles.exploreNav} aria-label="Portfolio landmarks">{PLAZA_STOPS.map(stop => <button key={stop.id} onClick={() => choose(stop.id)}>{stop.number} <span>{stop.title}</span></button>)}</nav>
       <p className={styles.hint}>Drag to rotate · Scroll or pinch to zoom · Click a landmark to read</p>
     </div>

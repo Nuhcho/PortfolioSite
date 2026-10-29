@@ -8,7 +8,8 @@ import { buildFountainWater } from "./fountain";
 import { buildBuildingDetails } from "./buildingDesign";
 import { type Site, seeded, stairRun } from "./architecture";
 import { SCREEN_RIGHT, SCREEN_UP, screenBox } from "./layout";
-import { type Registry, type Palette } from "./theme";
+import { COLOR, type Registry, type Palette } from "./theme";
+import { SHORE_QUAYS } from "./harborLayout";
 
 /** A walkable piazza on two quays. All levels are independent of copy length. */
 export async function buildPlaza(registry: Registry, palette: Palette,
@@ -31,27 +32,28 @@ export async function buildPlaza(registry: Registry, palette: Palette,
   };
   const baluster = registry.geometry(new THREE.LatheGeometry(
     [[.085,0],[.085,.08],[.055,.12],[.08,.28],[.095,.36],[.065,.48],[.045,.62],[.075,.68],[.075,.75]].map(([r,y])=>new THREE.Vector2(r,y)),16));
-  const limestone = registry.lit(0xffedbf);
-  const terracotta = registry.lit(0xef705b);
-  const pink = registry.lit(0xff4f91);
-  const yellow = registry.lit(0xffd32e);
-  const azure = registry.lit(0x359eff);
-  const violet = registry.lit(0xa16aff);
-  const jade = registry.lit(0x0cddb0);
-  const blueRoof = registry.lit(0x4165d5);
-  const violetRoof = registry.lit(0x7946bd);
-  const goldRoof = registry.lit(0xffad24);
-  const teal = registry.lit(0x29b99d);
-  const wood = registry.lit(0xb67a45);
-  const shutter = registry.lit(0x137e91);
-  const roofSeam = registry.lit(0xc64c38);
+  const limestone = registry.lit(COLOR.ivory);
+  const terracotta = registry.lit(COLOR.madder);
+  const pink = registry.lit(COLOR.rose);
+  const yellow = registry.lit(COLOR.sand);
+  const azure = registry.lit(COLOR.iris);
+  const violet = registry.lit(COLOR.lawn);
+  const jade = registry.lit(COLOR.paleTeal);
+  const blueRoof = registry.lit(0x248679);
+  const violetRoof = registry.lit(COLOR.madderDeep);
+  const goldRoof = registry.lit(COLOR.saffronDeep);
+  const teal = registry.lit(COLOR.tealDeep);
+  const wood = registry.lit(0xb77c40);
+  const shutter = registry.lit(COLOR.jadeDeep);
+  const roofSeam = registry.lit(0x983b2b);
   const lampGlass = registry.lit(0xffd47e,{emissive:0xffac45,emissiveIntensity:0});
   const materials = (stone: THREE.Material) => ({ stone, trim: limestone,
     shadow: palette.rockDeep, accent: terracotta, recess: palette.deep });
 
   // Rounded waterfront outlines descend below the water instead of floating
   // above it like a display plinth. The six-unit canal remains open.
-  [[32.25, -7.125], [8.25, 19.125]].forEach(([width, x]) => {
+  SHORE_QUAYS.slice(0,2).forEach(({center:[x],halfSize:[halfWidth]}) => {
+    const width=halfWidth*2;
     const w = width / 2, d = 20.25, r = 1.3;
     const shore = new THREE.Shape();
     shore.moveTo(-w+r,-d);shore.lineTo(w-r,-d);
@@ -64,7 +66,7 @@ export async function buildPlaza(registry: Registry, palette: Palette,
       quay.rotation.x=Math.PI/2;quay.position.set(x,top,1);town.add(quay);
     }
   });
-  const paving = [0xe3cc95,0xe8d39f,0xdfc78e].map(color=>registry.lit(color));
+  const paving = [0xe8d8a4,0xf1e3b7,0xdfcc96].map(color=>registry.lit(color));
   const pavingCorner=(column:number,row:number)=>new THREE.Vector3(-16.05+column*2.2+Math.sin(column*19.7+row*8.3)*.12,
     floor+.025,-9.05+row*2.2+Math.sin(column*7.3-row*21.1)*.12);
   // Flat, irregular stone joints replace the raised checkerboard of blocks.
@@ -409,13 +411,14 @@ export async function buildPlaza(registry: Registry, palette: Palette,
   root.rotation.y = 0;
   await checkpoint();
   return {
-    root, town, dynamic: [garden.group, fountainWater.group, details.group, residents.group], poses, centres, hotspots, width: width + 5, height: height + 5,
+    root, town, portFocus:harbor.portFocus, dynamic: [garden.group, fountainWater.group, details.group, residents.group], poses, centres, hotspots, width: width + 5, height: height + 5,
     setNight: (night: boolean) => {
       harbor.setNight(night);fountainWater.setNight(night);details.setNight(night);
       lampGlass.emissiveIntensity=night?2.8:0;
       registry.lanternNight.value=Number(night);
       town.updateWorldMatrix(true,false);
-      [[5,floor+4,18],[-15,floor+4,17],[7,floor+4,-7],[20,floor+4,16],[-6.4,floor+3.8,37.75]].forEach((p,i)=>{
+      [[5,floor+4,18],[-15,floor+4,17],[7,floor+4,-7],[20,floor+4,16],[-6.4,floor+3.8,37.75],
+        [25,floor+3.55,18.7],[38.7,floor+3.55,18.7],[24.5,floor+3.55,-11.8],[39,floor+3.55,-11.8]].forEach((p,i)=>{
         registry.lanternPositions.value[i].set(p[0],p[1],p[2]).applyMatrix4(town.matrixWorld);
       });
     },

@@ -1,11 +1,11 @@
 import * as THREE from "three";
-import type { Registry } from "./theme";
+import { COLOR, type Registry } from "./theme";
 
 /** Architectural silhouettes and relief, built in each building's local space. */
 export function buildBuildingDetails(registry: Registry, palazzo: THREE.Group, canal: THREE.Group, floor: number) {
-  const cream=registry.lit(0xfff2cc), gold=registry.lit(0xffc928), ink=registry.lit(0x25466e);
-  const coral=registry.lit(0xff6246), blue=registry.lit(0x296fe2), pink=registry.lit(0xff4f91);
-  const glass=registry.lit(0x137bab), violet=registry.lit(0x7546bd);
+  const cream=registry.lit(COLOR.ivory), gold=registry.lit(COLOR.saffron), ink=registry.lit(COLOR.opening);
+  const coral=registry.lit(COLOR.madder), blue=registry.lit(0x248679), pink=registry.lit(COLOR.rose);
+  const glass=registry.lit(0x329bb6), violet=registry.lit(COLOR.madderDeep);
   const box=(parent:THREE.Object3D,material:THREE.Material,size:number[],at:number[])=>{
     const mesh=new THREE.Mesh(registry.roundedBox(size,.035),material);
     mesh.position.set(at[0],at[1],at[2]);parent.add(mesh);return mesh;

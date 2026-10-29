@@ -26,17 +26,17 @@ export default function WorldLoader({ ready, download, preparing }: {
     <div className={styles.content}>
       <div className={styles.illustration} aria-hidden="true">
         <svg viewBox="0 0 320 240" fill="none">
-          <circle className={styles.sun} cx="225" cy="68" r="34" fill="#FFD27B" />
-          <circle cx="225" cy="68" r="45" stroke="#FFD27B" strokeOpacity=".2" />
+          <circle className={styles.sun} cx="225" cy="68" r="34" fill="#FFCF54" />
+          <circle cx="225" cy="68" r="45" stroke="#FFCF54" strokeOpacity=".2" />
           <path d="M65 69q8-9 16 0 8-9 16 0M117 42q6-7 12 0 6-7 12 0" stroke="#C2EFEC" strokeWidth="2.5" strokeLinecap="round" />
           <g className={styles.boat}>
             <path d="M158 48v127" stroke="#FFF4D9" strokeWidth="4" strokeLinecap="round" />
             <path d="M150 62C131 91 114 117 103 139c15 5 31 7 47 7Z" fill="#FFF4D9" />
-            <path d="M168 80c18 22 35 42 47 62-17-2-33-2-47 1Z" fill="#FF8C86" />
+            <path d="M168 80c18 22 35 42 47 62-17-2-33-2-47 1Z" fill="#E75A3B" />
             <path d="M113 123c12 4 24 6 37 6v9c-14 0-28-2-41-6Z" fill="#FFB56F" />
-            <path d="M158 49v-9l23 5-23 7" fill="#FF8C86" />
-            <path d="M90 159q69 13 143-2l-20 24q-47 17-101 0Z" fill="#FFB56F" />
-            <path d="m104 173 8 8q54 17 101 0l8-10q-60 14-117 2" fill="#E77B62" />
+            <path d="M158 49v-9l23 5-23 7" fill="#E75A3B" />
+            <path d="M90 159q69 13 143-2l-20 24q-47 17-101 0Z" fill="#E75A3B" />
+            <path d="m104 173 8 8q54 17 101 0l8-10q-60 14-117 2" fill="#B63F2E" />
             <path d="M90 159q69 13 143-2" stroke="#FFF4D9" strokeWidth="4" strokeLinecap="round" />
             <circle cx="124" cy="174" r="3" fill="#294F62" />
             <circle cx="140" cy="177" r="3" fill="#294F62" />

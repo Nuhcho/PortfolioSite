@@ -19,8 +19,9 @@ export function batchStatic(root: THREE.Object3D, registry: Registry, excluded: 
     const lines = object instanceof THREE.LineSegments;
     const key = `${object.material.uuid}-${lines}-${object.castShadow}-${object.receiveShadow}`;
     const geometry = object.geometry.index ? object.geometry.toNonIndexed() : object.geometry.clone();
+    const vertexColors = !lines && "vertexColors" in object.material && object.material.vertexColors;
     for (const name of Object.keys(geometry.attributes)) {
-      if (name !== "position" && (lines || name !== "normal")) geometry.deleteAttribute(name);
+      if (name !== "position" && (lines || name !== "normal") && !(name === "color" && vertexColors)) geometry.deleteAttribute(name);
     }
     geometry.clearGroups();
     geometry.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse, object.matrixWorld));
