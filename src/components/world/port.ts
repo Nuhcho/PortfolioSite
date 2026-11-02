@@ -4,6 +4,7 @@ import { batchStatic } from "./batching";
 import { buildVesselHull } from "./vesselDesign";
 import { buildLightHalos, type GlowLight } from "./lighting";
 import { BREAKWATER_OUTLINE, SHORE_QUAYS } from "./harborLayout";
+import { addFishingBoatLife, addPortLife } from "./sceneryDetails";
 
 /** A connected working quay, protected fishing basin and lighthouse. */
 export function buildPort(registry: Registry, floor: number, seaY: number) {
@@ -191,6 +192,7 @@ export function buildPort(registry: Registry, floor: number, seaY: number) {
     for(let slat=0;slat<4;slat++)box(boat,cream,[1.2,.035,.025],[0,.62,1.0+slat*.18]);
     const ring=new THREE.Mesh(registry.geometry(new THREE.TorusGeometry(.26,.07,8,24)),gold);
     ring.position.set(.82,.7,-1.1); ring.rotation.y=Math.PI/2; boat.add(ring);
+    addFishingBoatLife(registry,boat,i);
     batchStatic(boat,registry); boats.push({group:boat,phase:i*1.9});
   }
 
@@ -233,6 +235,7 @@ export function buildPort(registry: Registry, floor: number, seaY: number) {
     lights.push({at:[x,floor+3.55,z],size:2.2,color:0xffd783});
   }
   const halos=buildLightHalos(registry,lights); halos.visible=false; group.add(halos);
+  addPortLife(registry,group,floor,seaY);
   batchStatic(group,registry,[halos,...boats.map(boat=>boat.group)]);
   return {
     group,

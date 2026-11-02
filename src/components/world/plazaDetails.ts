@@ -1,9 +1,11 @@
 import * as THREE from "three";
 import { buildLightHalos } from "./lighting";
 import type { Registry } from "./theme";
+import { addTownLife } from "./sceneryDetails";
 
 /** Small-scale details share geometry/materials and are batched with the town. */
 export function buildPlazaDetails(registry: Registry, town: THREE.Group, floor: number) {
+  addTownLife(registry,town,floor);
   const cream = registry.lit(0xfff0d2), copper = registry.lit(0xc68158), dark = registry.lit(0x376b76);
   const paper = registry.lit(0xffdb92), coral = registry.lit(0xef8d75);
   const box = (material: THREE.Material, size: number[], at: number[]) => {

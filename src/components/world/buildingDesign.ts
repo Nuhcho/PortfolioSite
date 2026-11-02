@@ -104,4 +104,40 @@ export function buildBuildingDetails(registry: Registry, palazzo: THREE.Group, c
     const flag=new THREE.Mesh(registry.geometry(new THREE.ShapeGeometry(pennant)),pink);
     flag.material.side=THREE.DoubleSide;flag.position.set(side*6.3,6.9+k*.3,side*2.5);canal.add(flag);
   }
+
+  // Flowering balcony troughs and trailing ivy add a softer scale to the facades.
+  const leaf=registry.lit(0x479a43), bloom=registry.lit(0xf2a08c);
+  const foliage=registry.geometry(new THREE.SphereGeometry(1,10,8));
+  const planter=(parent:THREE.Group,x:number,y:number,z:number)=>{
+    box(parent,coral,[1.25,.25,.36],[x,y,z]);
+    box(parent,gold,[1.32,.07,.42],[x,y+.12,z]);
+    for(let i=0;i<7;i++){
+      const px=x-.48+i*.16;
+      const leaves=new THREE.Mesh(foliage,leaf);leaves.scale.set(.19,.13,.2);
+      leaves.position.set(px,y+.21,z);parent.add(leaves);
+      if(i%2===0){
+        const flower=new THREE.Mesh(foliage,bloom);flower.scale.set(.095,.065,.095);
+        flower.position.set(px,y+.32,z+.06);parent.add(flower);
+      }
+    }
+    for(const side of [-1,1]){
+      tube(parent,[new THREE.Vector3(x+side*.44,y+.18,z+.12),new THREE.Vector3(x+side*.5,y-.2,z+.25),
+        new THREE.Vector3(x+side*.35,y-.55,z+.3)],.018,leaf);
+      for(let i=0;i<4;i++){
+        const leaves=new THREE.Mesh(foliage,leaf);leaves.scale.set(.11,.07,.065);
+        leaves.position.set(x+side*(.44+Math.sin(i)*.065),y+.02-i*.14,z+.26);parent.add(leaves);
+      }
+    }
+  };
+  for(const x of [-7.85,-3.55])planter(palazzo,x,floor+7.08,-10.85);
+  for(const x of [-3.25,3.25])planter(canal,x,3.27,3.76);
+
+  // A slender compass vane breaks the roofline without adding another tower.
+  box(palazzo,ink,[.035,1.25,.035],[3.3,floor+9.8,-15]);
+  box(palazzo,gold,[1.1,.035,.035],[3.3,floor+10.23,-15]);
+  box(palazzo,gold,[.035,.035,.7],[3.3,floor+10.1,-15]);
+  const vaneShape=new THREE.Shape();vaneShape.moveTo(0,0);vaneShape.lineTo(-.32,.13);vaneShape.lineTo(-.32,-.13);vaneShape.closePath();
+  const vaneMaterial=registry.lit(COLOR.saffron,{side:THREE.DoubleSide});
+  const vane=new THREE.Mesh(registry.geometry(new THREE.ShapeGeometry(vaneShape)),vaneMaterial);
+  vane.position.set(3.92,floor+10.23,-15);palazzo.add(vane);
 }

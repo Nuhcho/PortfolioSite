@@ -4,6 +4,7 @@ import { seeded } from "./architecture";
 import { batchStatic } from "./batching";
 import { SEA_COLOR, type Registry } from "./theme";
 import { buildShoreTerrain } from "./shoreTerrain";
+import { addShoreDetails } from "./shoreDetails";
 
 /** Physical shoals below the water and weathered boulders above its surface. */
 export function buildCoastline(registry: Registry, seaY: number, floor: number) {
@@ -43,6 +44,7 @@ export function buildCoastline(registry: Registry, seaY: number, floor: number) 
     return registry.geometry(geometry);
   });
   const terrain=buildShoreTerrain(registry,seaY,floor);
+  addShoreDetails(registry,terrain);
   group.add(terrain.group);
   const foamLocations: { x: number; z: number; rx: number; rz: number; yaw: number }[] = [];
 

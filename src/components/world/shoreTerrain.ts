@@ -39,16 +39,59 @@ export function buildShoreTerrain(registry: Registry, seaY: number, floor: numbe
   const compile=material.onBeforeCompile.bind(material);
   material.onBeforeCompile=(shader,renderer)=>{
     compile(shader,renderer);
+    shader.uniforms.beachSeaY={value:seaY};
+    shader.uniforms.beachDrySand={value:new THREE.Color(0xe8d3a2)};
+    shader.uniforms.beachOchre={value:new THREE.Color(0xcab17f)};
+    shader.uniforms.beachWetSand={value:new THREE.Color(0xa59779)};
+    // Local positions survive static batching and keep the grain fixed to land.
+    shader.vertexShader=`varying vec3 beachPosition;\n${shader.vertexShader}`.replace(
+      "#include <project_vertex>","#include <project_vertex>\nbeachPosition=transformed;");
+    shader.fragmentShader=`
+      varying vec3 beachPosition;
+      uniform float beachSeaY;
+      uniform vec3 beachDrySand,beachOchre,beachWetSand;
+      float beachHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+      float beachNoise(vec2 p){
+        vec2 cell=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+        return mix(mix(beachHash(cell),beachHash(cell+vec2(1.,0.)),f.x),
+          mix(beachHash(cell+vec2(0.,1.)),beachHash(cell+vec2(1.,1.)),f.x),f.y);
+      }
+      ${shader.fragmentShader}`.replace("#include <color_fragment>",`#include <color_fragment>
+        vec2 beachPoint=beachPosition.xz;
+        float beachHeight=beachPosition.y-beachSeaY;
+        float sandCloud=beachNoise(beachPoint*.48)*.65+beachNoise(beachPoint*1.3)*.35;
+        float sandMask=1.-smoothstep(2.5,3.15,beachHeight+(sandCloud-.5)*.65);
+        float dampEdge=beachNoise(beachPoint*.85+vec2(7.,3.));
+        float dampSand=1.-smoothstep(.08,.85,beachHeight+(dampEdge-.5)*.55);
+        vec3 sandPaint=mix(beachDrySand,beachOchre,sandCloud*.6);
+        sandPaint=mix(sandPaint,beachWetSand,dampSand*.75);
+        // Gentle deposits and wind ripples break up the broad sand patches.
+        float sandRipple=sin(dot(beachPoint,vec2(5.4,1.8))+beachNoise(beachPoint*.6)*6.+beachNoise(beachPoint*2.7)*1.7);
+        float ripplePatch=smoothstep(.35,.65,beachNoise(beachPoint*.95+vec2(2.,9.)));
+        sandPaint*=.97+sandCloud*.06+sandRipple*.012*ripplePatch*(1.-dampSand);
+        // Fade grain below a pixel to prevent crawling speckles on wide views.
+        vec2 grainPoint=beachPoint*12.;
+        float grainSize=max(fwidth(grainPoint.x),fwidth(grainPoint.y));
+        float grainFade=1.-smoothstep(.6,1.8,grainSize);
+        sandPaint*=1.+(beachNoise(grainPoint)-.5)*.09*grainFade;
+        diffuseColor.rgb=mix(diffuseColor.rgb,sandPaint,sandMask);
+      `);
     // Keep the painted lighting, with softer bands and no ink rim on the beach.
     shader.fragmentShader=shader.fragmentShader
       .replace("float aa = max(fwidth(facing) * .75, .006);","float aa = .22;")
       .replace("inkEdge * .7","inkEdge * .12");
   };
-  material.customProgramCacheKey=()=>"coastal-soft-terrain-v2";
+  material.customProgramCacheKey=()=>"coastal-grained-sand-v3";
   const paintStops=[0,.22,.65,1,1.4,OUTER];
   const shorePaint=[0x91b65b,0xa2b96d,0xe0cd99,0xb9bd9a,0x7da59c,0x356f88].map(c=>new THREE.Color(c));
   const naturalHeight=smoothProfile(PROFILE,[floor-.08,floor-.13,seaY+2.9,seaY+1.9,seaY+.65,seaY,seaY-.42,seaY-1.5,seaY-4,seaY-7]);
   const retainedHeight=smoothProfile(PROFILE,[floor-.08,seaY-.35,seaY-.4,seaY-.5,seaY-.55,seaY-.6,seaY-.9,seaY-1.5,seaY-4,seaY-7]);
+  const heightAt=(fraction:number,x:number,z:number,exposed:number,weather:number)=>{
+    const sandDrift=Math.sin(x*1.7+z*.8)*Math.sin(z*2.2-x*.3)*.055*exposed
+      *THREE.MathUtils.smoothstep(fraction,.25,.5)*(1-THREE.MathUtils.smoothstep(fraction,.82,1));
+    return THREE.MathUtils.lerp(retainedHeight(fraction),naturalHeight(fraction),exposed)
+      +weather*THREE.MathUtils.smoothstep(fraction,0,.25)*(1-THREE.MathUtils.smoothstep(fraction,.65,1))+sandDrift;
+  };
   const washes:THREE.BufferGeometry[]=[];
   const shores=ISLAND_SHORES.map((outline,island)=>{
     const innerCurve=new THREE.CatmullRomCurve3(outline.map(p=>new THREE.Vector3(p[0],0,p[1])),true,"centripetal");
@@ -74,9 +117,8 @@ export function buildShoreTerrain(registry: Registry, seaY: number, floor: numbe
       // beneath them so sand cannot cut diagonally through the wall faces.
       for(let j=0;j<cols;j++){
         const fraction=FRACTIONS[j];
-        const height=THREE.MathUtils.lerp(retainedHeight(fraction),naturalHeight(fraction),exposed)
-          +weather*THREE.MathUtils.smoothstep(fraction,0,.25)*(1-THREE.MathUtils.smoothstep(fraction,.65,1));
         const x=inner.x+delta.x*fraction,z=inner.z+delta.z*fraction;
+        const height=heightAt(fraction,x,z,exposed,weather);
         positions.push(x,height,z);
         // Broad, irregular pigment transitions avoid rings of uniform color.
         const pigment=Math.max(0,fraction+(Math.sin(x*.71+z*.29)+Math.sin(z*.83-x*.34))*.065);
@@ -139,7 +181,14 @@ export function buildShoreTerrain(registry: Registry, seaY: number, floor: numbe
     const wash=new THREE.BufferGeometry();
     wash.setAttribute("position",new THREE.Float32BufferAttribute(washPositions,3));
     wash.setAttribute("uv",new THREE.Float32BufferAttribute(washUV,2));wash.setIndex(washIndices);washes.push(wash);
-    return {sample,length:waterCurve.getLength(),samples:samples.filter((_,i)=>i%2===0).slice(0,-1)};
+    const surface=(t:number,fraction:number)=>{
+      const {inner,water,width}=sample(t),phase=t*Math.PI*2;
+      const exposed=THREE.MathUtils.smoothstep(width,1.1,3);
+      const weather=(Math.sin(phase*5+island)*.07+Math.sin(phase*13-island)*.035)*exposed;
+      const at=inner.lerp(water,fraction);
+      at.y=heightAt(fraction,at.x,at.z,exposed,weather);return at;
+    };
+    return {sample,surface,length:waterCurve.getLength(),samples:samples.filter((_,i)=>i%2===0).slice(0,-1)};
   });
 
   // A single bathymetry texture describes the same coast the geometry uses.
