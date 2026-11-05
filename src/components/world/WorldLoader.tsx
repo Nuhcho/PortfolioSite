@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { DownloadProgress } from "./models";
 import styles from "./WorldLoader.module.css";
+import { profile } from "@/data/content";
 
 export default function WorldLoader({ ready, download, preparing }: {
   ready: boolean;
@@ -22,7 +23,7 @@ export default function WorldLoader({ ready, download, preparing }: {
 
   return <div className={styles.loader} data-world-loader data-ready={ready}
     aria-hidden={ready} inert={ready}>
-    <p className={styles.name}>Nicolas Villegas-Kirchman</p>
+    <p className={styles.name}>{profile.name}</p>
     <div className={styles.content}>
       <div className={styles.illustration} aria-hidden="true">
         <svg viewBox="0 0 320 240" fill="none">
@@ -47,12 +48,12 @@ export default function WorldLoader({ ready, download, preparing }: {
           </g>
         </svg>
       </div>
-      <p className={styles.eyebrow}>A little plaza. A world of work.</p>
-      <h1 className={styles.title}>Setting sail<span className={styles.dots} aria-hidden="true">...</span></h1>
+      <p className={styles.eyebrow}>{profile.role}</p>
+      <h1 className={styles.title}>Loading portfolio<span className={styles.dots} aria-hidden="true">...</span></h1>
       <p className={styles.status} role="status" aria-live="polite">
-        {ready ? "Your waterfront is ready." : slow
-          ? "Taking a little longer. Your waterfront is on its way."
-          : preparing ? "Bringing the waterfront to life." : "Downloading the waterfront."}
+        {ready ? "Ready to explore." : slow
+          ? "Still loading the scene. Thanks for your patience."
+          : preparing ? "Preparing the interactive scene." : "Loading the waterfront scene."}
       </p>
       <div className={styles.progress}>
         <div className={styles.track} role="progressbar"

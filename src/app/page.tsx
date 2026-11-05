@@ -1,16 +1,16 @@
 import styles from "./page.module.css";
 import WorldCanvas from "@/components/world/WorldCanvas";
 import MirrorDisclosure from "@/components/MirrorDisclosure";
-import { affiliation, contact, experience, projects } from "@/data/content";
+import { affiliation, contact, experience, profile, projects } from "@/data/content";
 import { skillGroups } from "@/data/content";
 
 /* Keep a complete server-rendered reading version available as a fallback. */
 
 const SECTIONS = [
   { id: "top", label: "Home" },
-  { id: "work", label: "Work" },
+  { id: "work", label: "Projects" },
   { id: "experience", label: "Experience" },
-  { id: "skills", label: "Capabilities" },
+  { id: "skills", label: "Skills" },
   { id: "contact", label: "Contact" },
 ];
 
@@ -22,7 +22,7 @@ export default function Home() {
     <WorldCanvas>
       <div className={styles.mirror}>
         <nav className={styles.nav} aria-label="Sections">
-          <p className={styles.wordmark}>Nicolas Villegas-Kirchman</p>
+          <p className={styles.wordmark}>{profile.name}</p>
           <ul>
             {SECTIONS.map((section) => (
               <li key={section.id}>
@@ -36,20 +36,17 @@ export default function Home() {
 
         <section className={styles.band} id="top">
           <div className={`${styles.inner} ${styles.hero}`}>
-            <p className={styles.supporting}>Applied ML × Software Engineering</p>
-            <h1>Nicolas Villegas-Kirchman</h1>
+            <p className={styles.supporting}>{profile.role}</p>
+            <h1>{profile.name}</h1>
             <p className={styles.lead}>
-              Software engineer building the ML systems — and the infrastructure
-              that runs them in production.
+              {profile.introduction}
             </p>
             <p>
-              Two disciplines, one practice: real-time data pipelines,
-              diagnostic imaging systems, and the distributed infrastructure
-              underneath both.
+              {profile.about}
             </p>
             <p className={styles.actions}>
               <a href="#work" data-world="cta-work">
-                View Selected Work
+                View projects
               </a>
               <a href="#contact" data-world="cta-contact">
                 Get in Touch
@@ -67,11 +64,12 @@ export default function Home() {
 
         <section className={styles.band} id="work">
           <div className={styles.inner}>
-            <h2>Selected Work</h2>
-            <p>Applied ML, shipped.</p>
+            <h2>Selected projects</h2>
+            <p>{profile.projectsIntro}</p>
             {featured.map((project, index) => (
               <article key={project.name}>
                 <h3>{project.name}</h3>
+                <p>{project.focus}</p>
                 <MirrorDisclosure
                   name={project.name}
                   worldId={`project-${index}`}
@@ -81,29 +79,33 @@ export default function Home() {
                     <strong>{project.metric}</strong>
                   </p>
                   <p>{project.summary}</p>
-                  <p>{project.detail}</p>
+                  {project.detail && <p>{project.detail}</p>}
                 </MirrorDisclosure>
+                {project.technologies.length > 0 && <p>Built with {project.technologies.join(", ")}.</p>}
               </article>
             ))}
             <h3>More Projects</h3>
             <ul className={styles.rows}>
               {secondary.map((project) => (
                 <li key={project.name}>
-                  <strong>{project.name}</strong> — {project.metric}.{" "}
-                  {project.summary}
+                  <strong>{project.name}</strong><p>{project.summary}</p><p>{project.metric}</p>
+                  {project.technologies.length > 0 && <p>Built with {project.technologies.join(", ")}.</p>}
+                  {project.detail && <details><summary>Project details</summary><p>{project.detail}</p></details>}
                 </li>
               ))}
             </ul>
+            <p><a href={contact.github} target="_blank" rel="noopener noreferrer">More on GitHub ↗</a></p>
           </div>
         </section>
 
         <section className={styles.band} id="experience">
           <div className={styles.inner}>
             <h2>Experience</h2>
-            <p>Systems in production.</p>
+            <p>{profile.experienceIntro}</p>
             {experience.map((entry, index) => (
               <article key={entry.name}>
                 <h3>{entry.name}</h3>
+                <p>{entry.focus}</p>
                 <MirrorDisclosure
                   name={entry.name}
                   worldId={`entry-${index}`}
@@ -115,6 +117,7 @@ export default function Home() {
                   <p>{entry.summary}</p>
                   <p>{entry.detail}</p>
                 </MirrorDisclosure>
+                <p>Tools: {entry.technologies.join(", ")}.</p>
               </article>
             ))}
           </div>
@@ -122,8 +125,8 @@ export default function Home() {
 
         <section className={styles.band} id="skills">
           <div className={styles.inner}>
-            <h2>Technical Capabilities</h2>
-            <p>Tools of the practice.</p>
+            <h2>Skills & tools</h2>
+            <p>{profile.skillsIntro}</p>
             {skillGroups.map((group, index) => (
               <div key={group.label}>
                 <h3>{group.label}</h3>
@@ -143,8 +146,7 @@ export default function Home() {
           <div className={styles.inner}>
             <h2>Get in touch</h2>
             <p>
-              Open to conversations about applied ML, systems engineering, or
-              roles where both meet.
+              {profile.contactIntro}
             </p>
             <ul className={styles.rows}>
               <li>
@@ -173,11 +175,6 @@ export default function Home() {
                 </a>
               </li>
             </ul>
-            <p>
-              <strong>Stack —</strong> Python, JavaScript, TypeScript, React,
-              Next.js, Django, FastAPI, PyTorch, TensorFlow, PostgreSQL, Docker,
-              Terraform, AWS, Kafka.
-            </p>
           </div>
         </section>
       </div>

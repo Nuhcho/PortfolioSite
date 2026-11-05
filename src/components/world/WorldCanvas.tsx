@@ -11,6 +11,7 @@ import { ISO_DIR, Registry, createPalette } from "./theme";
 import PlazaPanel from "./PlazaPanel";
 import WorldLoader from "./WorldLoader";
 import { PLAZA_STOPS, type PlazaStop } from "./plazaStops";
+import { profile } from "@/data/content";
 import styles from "./WorldCanvas.module.css";
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -375,7 +376,7 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
     <div className={styles.world} data-port-view={cameraAtPort} inert={!sceneReady || textMode}>
       <div ref={hostRef} className={styles.canvasHost} tabIndex={0} role="region" aria-label="Interactive waterfront and working port. Drag to rotate. Arrow keys rotate the camera, plus and minus zoom, zero resets. Choose Port view to explore the harbor.">
         {PLAZA_STOPS.map((stop, index) => <button key={stop.id} ref={el => { labelsRef.current[index] = el; }}
-          className={styles.landmark} hidden={cameraAtPort} onClick={event => {if(event.detail===0 || !dragClickRef.current)choose(stop.id);}} aria-label={`Explore ${stop.label}: ${stop.title}`}>
+          className={styles.landmark} hidden={cameraAtPort} onClick={event => {if(event.detail===0 || !dragClickRef.current)choose(stop.id);}} aria-label={`Open ${stop.title} at ${stop.landmark.toLowerCase()}`}>
           <span>{stop.number}</span><strong>{stop.label}</strong><i>+</i>
         </button>)}
       </div>
@@ -390,9 +391,9 @@ export default function WorldCanvas({ children }: { children: ReactNode }) {
           aria-label={cameraAtPort?"Return to whole waterfront":"Explore the port"}>{cameraAtPort?"Whole view":"Port view"}</button>
         <button type="button" onClick={()=>cameraActionsRef.current?.("reset")} aria-label="Reset camera">Reset view</button>
       </div>
-      <header className={styles.intro} hidden={cameraAtPort}><p className={styles.eyebrow}>Nicolas Villegas-Kirchman</p><h1>A little plaza.{" "}<br/>A world of work.</h1><p>Applied ML & software engineering.{" "}<br/>Choose a landmark to explore.</p></header>
-      <nav className={styles.exploreNav} aria-label="Portfolio landmarks">{PLAZA_STOPS.map(stop => <button key={stop.id} onClick={() => choose(stop.id)}>{stop.number} <span>{stop.title}</span></button>)}</nav>
-      <p className={styles.hint}>Drag to rotate · Scroll or pinch to zoom · Click a landmark to read</p>
+      <h1 className={styles.siteTitle}>{profile.name} — Portfolio</h1>
+      <nav className={styles.exploreNav} aria-label="Portfolio navigation">{PLAZA_STOPS.map(stop => <button key={stop.id} onClick={() => choose(stop.id)}>{stop.number} <span>{stop.title}</span></button>)}</nav>
+      <p className={styles.hint}>Choose a marker to explore my work · Drag to rotate · Scroll or pinch to zoom</p>
     </div>
     <PlazaPanel selected={textMode ? null : selected} onClose={() => choose(null)} onSelect={choose}/>
     <div data-world-fallback hidden={!textMode}>{children}</div>

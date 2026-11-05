@@ -63,10 +63,8 @@
 .world { visibility: hidden; }
 :global(html[data-world="on"]) .world { visibility: visible; }
 .canvasHost { inset: 0; height: auto; }
-.intro { position: absolute; left: 4vw; top: 5vh; max-width: 310px; color: #fff8e8; pointer-events: none; }
+.siteTitle { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
-.intro h1 { font-size: clamp(2rem, 3.5vw, 3.7rem); line-height: 1.08; letter-spacing: -.035em; margin: 18px 0; text-transform: none; }
-.intro > p:last-child { font-size: .95rem; line-height: 1.7; }
 .landmark, .sceneControls, .exploreNav button {
   border: 1px solid var(--glass-border);
   background: linear-gradient(145deg, var(--glass-sheen), transparent 65%), var(--glass-fill);
@@ -102,6 +100,10 @@
 .panelBody article > small { text-transform: uppercase; font-size: .65rem; letter-spacing: .12em; color: #8b6554; }
 .panelBody article h3 { margin-top: 5px; }
 .panelBody .metric { color: #a35b43; font-weight: 700; }
+.panelBody .entryFocus { margin-top: 0; font-size: .85rem; color: #6a715f; }
+.entryStack { margin: 14px 0; }
+.chips.entryStack li { padding: 4px 8px; font-size: .75rem; }
+.inlineLink { color: #296574; text-underline-offset: 4px; }
 .panelBody summary { cursor: pointer; font-size: .85rem; text-decoration: underline; text-underline-offset: 4px; }
 .panelNav { display: flex; flex-wrap: wrap; gap: 7px; padding: 16px 28px; border-top: 1px solid #dfd6bd; }
 .panelNav button, .textButton { border: 1px solid #dfd6bd; border-radius: 3px; background: transparent; color: inherit; padding: 8px 10px; cursor: pointer; font: inherit; font-size: .7rem; }
@@ -111,13 +113,11 @@
 .contactLinks { list-style: none; }
 .contactLinks li { padding: 15px 0; border-bottom: 1px solid #dfd6bd; }
 .contactLinks a { color: #296574; overflow-wrap: anywhere; }
+.contactLinks a { display: flex; flex-direction: column; gap: 4px; text-decoration: none; }
+.contactLinks a:hover strong { text-decoration: underline; text-underline-offset: 4px; }
+.contactLinks a span { font-size: .85rem; }
 @media(max-width: 900px) {
   .canvasHost { inset: 120px 0 90px; height: auto; }
-  .intro { top: 22px; left: 22px; max-width: none; }
-  .intro h1 { font-size: 1.6rem; margin: 9px 0; }
-  .intro h1 br { display: none; }
-  .intro > p:last-child { font-size: .75rem; }
-  .intro > p:last-child br { display: none; }
   .eyebrow { font-size: .6rem; }
   .exploreNav { left: 14px; right: 14px; bottom: 36px; flex-direction: row; gap: 5px; }
   .exploreNav button { flex: 1; padding: 8px 5px; text-align: center; font-size: .58rem; }
@@ -132,8 +132,6 @@
   .panelNav { padding: 12px 20px; }
 }
 :global(html[data-world="on"]) .world { background: #166bc4; }
-.intro h1 { color: #fff8e8; }
-@media(max-width: 900px) { .intro h1 br::after { content: " "; } }
 .sceneControls {position:absolute;right:28px;top:28px;display:flex;align-items:center;gap:4px;padding:5px;border-radius:9px;}
 .sceneControls button {border:0;background:transparent;color:inherit;min-width:34px;min-height:34px;padding:7px 10px;border-radius:5px;font:inherit;font-size:.75rem;cursor:pointer;}
 .sceneControls button:hover {background:var(--glass-hover);}
@@ -149,12 +147,12 @@
 :global(html[data-scene-mode="night"]) .panel .metric {color:#ffb394;}
 :global(html[data-scene-mode="night"]) .chips li {background:#294a57;border-color:#597567;}
 :global(html[data-scene-mode="night"]) .contactLinks a {color:#9adbdc;}
+:global(html[data-scene-mode="night"]) .inlineLink {color:#9adbdc;}
+:global(html[data-scene-mode="night"]) .panelBody .entryFocus {color:#c4d4ce;}
 @media(max-width:900px){
-  .sceneControls {top:124px;right:12px;gap:1px;padding:3px;}
+  .sceneControls {top:20px;right:12px;gap:1px;padding:3px;}
   .sceneControls button {font-size:.65rem;padding:5px 8px;min-width:30px;min-height:30px;}
-  .canvasHost {inset:165px 0 90px;}
-  .world[data-port-view="true"] .sceneControls {top:20px;}
-  .world[data-port-view="true"] .canvasHost {inset:70px 0 90px;}
+  .canvasHost {inset:70px 0 90px;}
 }
 :global(html[data-world="on"]) .world {touch-action:none;}
 :global(html[data-scene-mode="night"]) .panelNav button[aria-current],:global(html[data-scene-mode="night"]) .textButton {color:#294653;}

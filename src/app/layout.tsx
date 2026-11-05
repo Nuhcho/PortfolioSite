@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cabin } from "next/font/google";
 import "./globals.css";
+import { profile } from "@/data/content";
 
 /* One humanist family for everything, the way Monument Valley's own site sets
    all of its type in Humanist 521. Cabin is drawn from the same Johnston and
@@ -13,9 +14,9 @@ const humanist = Cabin({
 });
 
 export const metadata: Metadata = {
-  title: "Nicolas Villegas-Kirchman — Applied ML × Software Engineering",
+  title: `${profile.name} | Software Engineering Portfolio`,
   description:
-    "Applied AI/ML and software engineering work: production ML pipelines, distributed systems, and diagnostic imaging models, with measured outcomes.",
+    "Explore Nicolas Villegas-Kirchman’s projects and experience in applied machine learning, backend development, data pipelines, and cloud infrastructure.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
